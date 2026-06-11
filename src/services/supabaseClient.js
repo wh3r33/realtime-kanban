@@ -29,6 +29,13 @@ export async function getCurrentUser() {
   return { data: data?.user || null, error };
 }
 
+export async function getCurrentSession() {
+  if (!supabase) return { data: null, error: new Error(missingSupabaseEnvMessage) };
+  const { data, error } = await supabase.auth.getSession();
+  warnSupabaseError("auth.getSession failed", error);
+  return { data: data?.session || null, error };
+}
+
 export async function getCurrentProfile() {
   if (!supabase) return { data: null, error: new Error(missingSupabaseEnvMessage) };
   const { data: user, error: userError } = await getCurrentUser();

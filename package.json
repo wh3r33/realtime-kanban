@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "lint": "node tools/audit-js.mjs",
+    "test": "vitest run",
     "preview": "vite preview",
     "check": "npm run build"
   },
@@ -17,5 +19,7 @@
     "vue": "^3.5.12",
     "vue-router": "^4.4.5"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "vitest": "^4.1.8"
+  }
 }

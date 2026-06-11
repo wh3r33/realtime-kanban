@@ -120,6 +120,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  cardsStore.realtime.untrack?.();
   cardsStore.realtime.unsubscribe?.();
 });
 </script>

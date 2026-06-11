@@ -1,11 +1,20 @@
 import { defineStore } from "pinia";
-import { getCurrentProfile, getCurrentUser, isSupabaseConfigured, missingSupabaseEnvMessage, supabase, warnSupabaseError } from "../services/supabaseClient";
+import {
+  getCurrentProfile,
+  getCurrentSession,
+  getCurrentUser,
+  isSupabaseConfigured,
+  missingSupabaseEnvMessage,
+  supabase,
+  warnSupabaseError
+} from "../services/supabaseClient";
 
 function profileName(user, profile) {
   return profile?.name || user?.user_metadata?.name || user?.email || "Supabase user";
 }
 
 let initializePromise = null;
+let authSubscription = null;
 
 export const useAuthStore = defineStore("auth", {
   state: () => ({
@@ -22,6 +31,8 @@ export const useAuthStore = defineStore("auth", {
   }),
   getters: {
     isConfigured: () => isSupabaseConfigured,
+    isAuthenticated: (state) => state.session.status === "authenticated",
+    isAuthReady: (state) => state.initialized && state.session.status !== "loading",
     canManageWorkspace: (state) => state.currentRole === "owner",
     canMutateCards: (state) => ["owner", "editor"].includes(state.currentRole),
     isViewer: (state) => state.currentRole === "viewer"
@@ -35,6 +46,19 @@ export const useAuthStore = defineStore("auth", {
       });
       return initializePromise;
     },
+    bindAuthListener() {
+      if (!isSupabaseConfigured || !supabase || authSubscription) return;
+      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+        globalThis.setTimeout(async () => {
+          if (!session?.user) {
+            this.applyAnonymousSession();
+            return;
+          }
+          await this.applyAuthenticatedUser(session.user);
+        }, 0);
+      });
+      authSubscription = data?.subscription || null;
+    },
     async initializeSession() {
       if (!isSupabaseConfigured) {
         this.session = { status: "setup_required", workspaceId: null };
@@ -42,20 +66,31 @@ export const useAuthStore = defineStore("auth", {
         this.initialized = true;
         return;
       }
+      this.bindAuthListener();
       this.loading = true;
       this.errorMessage = "";
       this.profileErrorMessage = "";
-      const { data: user, error } = await getCurrentUser();
-      if (error || !user) {
-        this.session = { status: "anonymous", workspaceId: null };
-        this.currentUserId = null;
-        this.currentUserName = "";
-        this.profile = null;
+      const { data: session, error } = await getCurrentSession();
+      if (error || !session?.user) {
+        this.applyAnonymousSession();
         this.loading = false;
-        this.initialized = true;
         if (error) this.errorMessage = error.message;
         return;
       }
+      await this.applyAuthenticatedUser(session.user);
+      this.loading = false;
+      this.initialized = true;
+    },
+    applyAnonymousSession() {
+      this.session = { status: isSupabaseConfigured ? "anonymous" : "setup_required", workspaceId: null };
+      this.currentUserId = null;
+      this.currentUserName = "";
+      this.currentRole = "viewer";
+      this.profile = null;
+      this.loading = false;
+      this.initialized = true;
+    },
+    async applyAuthenticatedUser(user) {
       const { data: profile, error: profileError } = await getCurrentProfile();
       warnSupabaseError("profile initialization failed", profileError);
       this.currentUserId = user.id;
@@ -63,7 +98,6 @@ export const useAuthStore = defineStore("auth", {
       this.profile = profile;
       this.session = { status: "authenticated", workspaceId: "supabase" };
       if (profileError) this.profileErrorMessage = profileError.message;
-      this.loading = false;
       this.initialized = true;
     },
     setBoardRole(role) {
@@ -88,16 +122,19 @@ export const useAuthStore = defineStore("auth", {
       await this.initialize();
       return { ok: true, message: "Signed in with Supabase." };
     },
+    async acceptInvitation(token) {
+      if (!isSupabaseConfigured || !supabase) return { ok: false, message: this.errorMessage };
+      if (!token) return { ok: false, message: "Invitation token is missing." };
+      const { acceptInvitation } = await import("../services/memberRepository");
+      const { data, error } = await acceptInvitation(token);
+      if (error) return { ok: false, message: error.message };
+      return { ok: true, message: "Invitation accepted.", boardId: data?.boardId };
+    },
     async signOut() {
       if (supabase) await supabase.auth.signOut();
-      this.currentUserId = null;
-      this.currentUserName = "";
-      this.currentRole = "viewer";
-      this.profile = null;
       this.profileErrorMessage = "";
       this.errorMessage = "";
-      this.initialized = true;
-      this.session = { status: isSupabaseConfigured ? "anonymous" : "setup_required", workspaceId: null };
+      this.applyAnonymousSession();
     }
   }
 });

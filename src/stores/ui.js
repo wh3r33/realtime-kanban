@@ -45,6 +45,29 @@ export const useUiStore = defineStore("ui", {
       this.syncState = state;
       this.syncText = detail || `${state.charAt(0).toUpperCase()}${state.slice(1)}`;
     },
+    applyActivityChange(payload) {
+      if (payload.eventType === "DELETE") {
+        this.activityEvents = this.activityEvents.filter((event) => event.id !== payload.old.id);
+        return;
+      }
+      const row = payload.new;
+      const event = {
+        id: row.id,
+        boardId: row.board_id,
+        actorId: row.user_id,
+        type: row.action,
+        action: row.action,
+        entityType: row.entity_type,
+        entityId: row.entity_id,
+        oldData: row.old_data,
+        newData: row.new_data,
+        title: row.action.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()),
+        body: row.new_data?.title || row.new_data?.description || row.entity_type || "",
+        createdAt: row.created_at ? new Date(row.created_at).toLocaleString() : ""
+      };
+      this.activityEvents = [event, ...this.activityEvents.filter((item) => item.id !== event.id)].slice(0, 50);
+      this.lastChanged = event.title;
+    },
     setTheme(theme) {
       this.theme = theme;
       if (typeof document !== "undefined") document.documentElement.dataset.theme = theme;

@@ -73,14 +73,43 @@ create table if not exists public.activity_logs (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.board_invitations (
+  id uuid primary key default gen_random_uuid(),
+  board_id uuid not null references public.boards(id) on delete cascade,
+  email text not null,
+  role text not null default 'viewer',
+  token text not null unique default encode(gen_random_bytes(24), 'hex'),
+  invited_by uuid not null references public.users(id) on delete cascade,
+  accepted_by uuid references public.users(id) on delete set null,
+  accepted_at timestamptz,
+  revoked_at timestamptz,
+  expires_at timestamptz not null default now() + interval '14 days',
+  created_at timestamptz not null default now(),
+  constraint board_invitations_role_check check (role in ('editor', 'viewer'))
+);
+
+alter table public.cards add column if not exists deleted_at timestamptz;
+
 create index if not exists boards_owner_id_idx on public.boards(owner_id);
 create index if not exists columns_board_id_idx on public.columns(board_id);
 create index if not exists cards_board_id_idx on public.cards(board_id);
 create index if not exists cards_column_id_idx on public.cards(column_id);
+create index if not exists cards_active_order_idx on public.cards(board_id, column_id, position) where deleted_at is null;
 create index if not exists board_members_board_id_idx on public.board_members(board_id);
 create index if not exists board_members_user_id_idx on public.board_members(user_id);
 create index if not exists activity_logs_board_id_idx on public.activity_logs(board_id);
 create index if not exists activity_logs_created_at_idx on public.activity_logs(created_at desc);
+create index if not exists board_invitations_board_id_idx on public.board_invitations(board_id);
+create index if not exists board_invitations_email_idx on public.board_invitations(lower(email));
+
+do $$
+begin
+  alter table public.cards add constraint cards_position_not_negative check (position >= 0);
+exception
+  when duplicate_object then
+    null;
+end;
+$$;
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -178,12 +207,230 @@ as $$
   );
 $$;
 
+create or replace function public.log_board_activity(
+  log_board_id uuid,
+  log_action text,
+  log_entity_type text,
+  log_entity_id uuid,
+  log_old_data jsonb default null,
+  log_new_data jsonb default null
+)
+returns public.activity_logs
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  inserted_log public.activity_logs;
+begin
+  insert into public.activity_logs (board_id, user_id, action, entity_type, entity_id, old_data, new_data)
+  values (log_board_id, auth.uid(), log_action, log_entity_type, log_entity_id, log_old_data, log_new_data)
+  returning * into inserted_log;
+
+  return inserted_log;
+end;
+$$;
+
+create or replace function public.move_card_safely(
+  move_card_id uuid,
+  target_column_id uuid,
+  target_position integer
+)
+returns public.cards
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  before_card public.cards;
+  after_card public.cards;
+  target_board_id uuid;
+  normalized_position integer;
+begin
+  select * into before_card
+  from public.cards
+  where id = move_card_id
+  for update;
+
+  if before_card.id is null or before_card.deleted_at is not null then
+    raise exception 'Card was not found.';
+  end if;
+
+  select board_id into target_board_id
+  from public.columns
+  where id = target_column_id;
+
+  if target_board_id is null or target_board_id <> before_card.board_id then
+    raise exception 'Target column does not belong to this board.';
+  end if;
+
+  if not public.has_board_role(before_card.board_id, array['owner', 'editor']) then
+    raise exception 'You do not have permission to move cards on this board.';
+  end if;
+
+  normalized_position := greatest(0, target_position);
+
+  perform 1
+  from public.cards
+  where board_id = before_card.board_id
+    and deleted_at is null
+  for update;
+
+  update public.cards
+  set position = position - 1
+  where board_id = before_card.board_id
+    and column_id = before_card.column_id
+    and deleted_at is null
+    and id <> before_card.id
+    and position > before_card.position;
+
+  select least(
+    normalized_position,
+    greatest(0, count(*)::integer)
+  )
+  into normalized_position
+  from public.cards
+  where board_id = before_card.board_id
+    and column_id = target_column_id
+    and deleted_at is null
+    and id <> before_card.id;
+
+  update public.cards
+  set position = position + 1
+  where board_id = before_card.board_id
+    and column_id = target_column_id
+    and deleted_at is null
+    and id <> before_card.id
+    and position >= normalized_position;
+
+  update public.cards
+  set column_id = target_column_id,
+      position = normalized_position
+  where id = before_card.id
+  returning * into after_card;
+
+  perform public.log_board_activity(
+    after_card.board_id,
+    'card_moved',
+    'card',
+    after_card.id,
+    to_jsonb(before_card),
+    to_jsonb(after_card)
+  );
+
+  return after_card;
+end;
+$$;
+
+create or replace function public.restore_card(restore_card_id uuid)
+returns public.cards
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  before_card public.cards;
+  after_card public.cards;
+  restored_position integer;
+begin
+  select * into before_card
+  from public.cards
+  where id = restore_card_id
+  for update;
+
+  if before_card.id is null then
+    raise exception 'Card was not found.';
+  end if;
+
+  if not public.has_board_role(before_card.board_id, array['owner', 'editor']) then
+    raise exception 'You do not have permission to restore cards on this board.';
+  end if;
+
+  select coalesce(max(position) + 1, 0)
+  into restored_position
+  from public.cards
+  where board_id = before_card.board_id
+    and column_id = before_card.column_id
+    and deleted_at is null;
+
+  update public.cards
+  set deleted_at = null,
+      status = case when status = 'deleted' then 'active' else status end,
+      position = restored_position
+  where id = before_card.id
+  returning * into after_card;
+
+  perform public.log_board_activity(
+    after_card.board_id,
+    'card_restored',
+    'card',
+    after_card.id,
+    to_jsonb(before_card),
+    to_jsonb(after_card)
+  );
+
+  return after_card;
+end;
+$$;
+
+create or replace function public.accept_board_invitation(invite_token text)
+returns public.board_members
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  invitation public.board_invitations;
+  membership public.board_members;
+begin
+  select * into invitation
+  from public.board_invitations
+  where token = invite_token
+    and revoked_at is null
+    and accepted_at is null
+    and expires_at > now()
+  for update;
+
+  if invitation.id is null then
+    raise exception 'Invitation is invalid, expired, accepted, or revoked.';
+  end if;
+
+  if lower(invitation.email) <> lower(coalesce((select u.email from public.users u where u.id = auth.uid()), '')) then
+    raise exception 'Invitation email does not match the signed-in user.';
+  end if;
+
+  insert into public.board_members (board_id, user_id, role, invited_by)
+  values (invitation.board_id, auth.uid(), invitation.role, invitation.invited_by)
+  on conflict (board_id, user_id) do update
+  set role = excluded.role,
+      invited_by = excluded.invited_by
+  returning * into membership;
+
+  update public.board_invitations
+  set accepted_by = auth.uid(),
+      accepted_at = now()
+  where id = invitation.id;
+
+  perform public.log_board_activity(
+    invitation.board_id,
+    'invite_accepted',
+    'board_member',
+    membership.id,
+    null,
+    to_jsonb(membership)
+  );
+
+  return membership;
+end;
+$$;
+
 alter table public.users enable row level security;
 alter table public.boards enable row level security;
 alter table public.columns enable row level security;
 alter table public.cards enable row level security;
 alter table public.board_members enable row level security;
 alter table public.activity_logs enable row level security;
+alter table public.board_invitations enable row level security;
 
 drop policy if exists "users can select own profile" on public.users;
 create policy "users can select own profile"
@@ -369,11 +616,47 @@ on public.activity_logs for insert
 to authenticated
 with check (user_id = auth.uid() and public.is_board_member(board_id));
 
+drop policy if exists "owners can select board invitations" on public.board_invitations;
+create policy "owners can select board invitations"
+on public.board_invitations for select
+to authenticated
+using (public.has_board_role(board_id, array['owner']));
+
+drop policy if exists "invitees can select own pending invitations" on public.board_invitations;
+create policy "invitees can select own pending invitations"
+on public.board_invitations for select
+to authenticated
+using (
+  revoked_at is null
+  and accepted_at is null
+  and lower(email) = lower(coalesce((select u.email from public.users u where u.id = auth.uid()), ''))
+);
+
+drop policy if exists "owners can create board invitations" on public.board_invitations;
+create policy "owners can create board invitations"
+on public.board_invitations for insert
+to authenticated
+with check (
+  invited_by = auth.uid()
+  and public.has_board_role(board_id, array['owner'])
+);
+
+drop policy if exists "owners can revoke board invitations" on public.board_invitations;
+create policy "owners can revoke board invitations"
+on public.board_invitations for update
+to authenticated
+using (public.has_board_role(board_id, array['owner']))
+with check (public.has_board_role(board_id, array['owner']));
+
+grant execute on function public.move_card_safely(uuid, uuid, integer) to authenticated;
+grant execute on function public.restore_card(uuid) to authenticated;
+grant execute on function public.accept_board_invitation(text) to authenticated;
+
 do $$
 declare
   realtime_table text;
 begin
-  foreach realtime_table in array array['boards', 'columns', 'cards', 'board_members', 'activity_logs']
+  foreach realtime_table in array array['boards', 'columns', 'cards', 'board_members', 'activity_logs', 'board_invitations']
   loop
     begin
       execute format('alter publication supabase_realtime add table %I.%I', 'public', realtime_table);

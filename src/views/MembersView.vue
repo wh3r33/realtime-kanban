@@ -1,30 +1,54 @@
 <script setup>
-import { computed, onMounted } from "vue";
+import { computed, onMounted, reactive } from "vue";
+import { useAuthStore } from "../stores/auth";
 import { useBoardsStore } from "../stores/boards";
 import { useMembersStore } from "../stores/members";
 import { useUiStore } from "../stores/ui";
 
+const authStore = useAuthStore();
 const boardsStore = useBoardsStore();
 const membersStore = useMembersStore();
 const uiStore = useUiStore();
+const inviteForm = reactive({ email: "", role: "viewer" });
 
 const selectedBoard = computed(() => boardsStore.selectedBoard);
+const canManage = computed(() => authStore.canManageWorkspace);
 const roleDescriptions = {
   owner: "Full board control",
   editor: "Create, edit, and move cards",
   viewer: "Read-only access with visible presence"
 };
 
-function inviteMember() {
-  uiStore.showToast("Invitations are not connected yet");
+async function inviteMember() {
+  const result = await membersStore.createInvitation(boardsStore.selectedBoardId, inviteForm.email, inviteForm.role);
+  if (result.error) {
+    uiStore.showToast(result.error.message);
+    return;
+  }
+  inviteForm.email = "";
+  inviteForm.role = "viewer";
+  uiStore.showToast(`Invite created for ${result.invitation.email}`);
 }
 
-function toggleRole(member) {
-  uiStore.showToast(`${member.name} role changes are not implemented yet`);
+async function toggleRole(member) {
+  const nextRole = member.role === "viewer" ? "editor" : "viewer";
+  const result = await membersStore.changeRole(boardsStore.selectedBoardId, member.id, nextRole);
+  uiStore.showToast(result.error ? result.error.message : `${member.name} changed to ${nextRole}`);
+}
+
+async function removeMember(member) {
+  const result = await membersStore.removeMember(boardsStore.selectedBoardId, member.id);
+  uiStore.showToast(result.error ? result.error.message : `${member.name} removed`);
+}
+
+async function revokeInvite(invitation) {
+  const result = await membersStore.revokeInvitation(invitation.id);
+  uiStore.showToast(result.error ? result.error.message : `Invite revoked for ${invitation.email}`);
 }
 
 onMounted(async () => {
   await membersStore.loadMembers(boardsStore.selectedBoardId);
+  await membersStore.loadInvitations(boardsStore.selectedBoardId);
 });
 </script>
 
@@ -42,13 +66,14 @@ onMounted(async () => {
   <section class="presence-strip" aria-label="Realtime member presence">
     <div>
       <span class="pulse-dot"></span>
-      <strong>{{ membersStore.members.length }} members · Presence not connected</strong>
+      <strong>{{ membersStore.members.length }} members · {{ membersStore.onlineMembers.length }} online</strong>
     </div>
     <div class="presence-badges">
-      <span class="status-badge viewer">PRESENCE PARTIAL</span>
+      <span class="status-badge" :class="membersStore.presenceConnected ? 'synced' : 'viewer'">{{ membersStore.presenceConnected ? 'PRESENCE LIVE' : 'PRESENCE OFFLINE' }}</span>
     </div>
     <div class="realtime-mini-feed">
-      <span>Online and editing indicators are hidden until Supabase presence is implemented.</span>
+      <span v-if="membersStore.editingUsers.length">{{ membersStore.editingUsers.length }} active editing signal{{ membersStore.editingUsers.length === 1 ? '' : 's' }}</span>
+      <span v-else>No active editing signals</span>
     </div>
   </section>
 
@@ -58,22 +83,22 @@ onMounted(async () => {
         v-for="member in membersStore.members"
         :key="member.id"
         class="member-card-enhanced"
-        :class="`is-offline`"
+        :class="member.presence === 'online' ? 'is-online' : 'is-offline'"
         :style="{ '--role-color': member.color }"
       >
         <div class="member-main-row">
-          <span class="member-avatar" data-status="offline">{{ member.initials }}</span>
+          <span class="member-avatar" :data-status="member.presence === 'online' ? 'online' : 'offline'">{{ member.initials }}</span>
           <div class="member-identity">
             <div class="member-name-row">
               <h2>{{ member.name }}</h2>
-              <button v-if="member.role !== 'owner'" class="role-badge role-action" :class="member.role" type="button" @click="toggleRole(member)">
+              <button v-if="member.role !== 'owner'" class="role-badge role-action" :class="member.role" type="button" :disabled="!canManage" @click="toggleRole(member)">
                 {{ member.role.toUpperCase() }}
               </button>
               <span v-else class="role-badge owner">{{ member.role.toUpperCase() }}</span>
             </div>
             <p>{{ member.email }}</p>
           </div>
-          <span class="member-status offline">presence not connected</span>
+          <span class="member-status" :class="member.presence === 'online' ? 'online' : 'offline'">{{ member.presence }}</span>
         </div>
         <div class="member-detail-grid">
           <div>
@@ -82,13 +107,14 @@ onMounted(async () => {
           </div>
           <div>
             <span>Last action</span>
-            <strong>No presence/activity signal</strong>
+            <strong>{{ membersStore.editingUsers.find((presence) => presence.userId === member.id)?.field || member.activity }}</strong>
           </div>
           <div>
             <span>Permission</span>
             <strong>{{ roleDescriptions[member.role] }}</strong>
           </div>
         </div>
+        <button v-if="member.role !== 'owner'" class="button secondary" type="button" :disabled="!canManage" @click="removeMember(member)">Remove</button>
       </article>
       <div v-if="membersStore.members.length <= 1" class="empty-state informative">
         <strong>No collaborators yet</strong>
@@ -113,10 +139,29 @@ onMounted(async () => {
       <section class="settings-section-card">
         <div class="section-title-row">
           <p class="kicker">Share Link</p>
-          <span class="status-badge viewer">NOT CONNECTED</span>
+          <span class="status-badge synced">CONNECTED</span>
         </div>
-        <div class="share-box">Invite links are not connected</div>
-        <button class="button primary" type="button" @click="inviteMember">Invite member</button>
+        <form class="drawer-block" @submit.prevent="inviteMember">
+          <input v-model="inviteForm.email" class="input" type="email" placeholder="teammate@example.com" :disabled="!canManage" required />
+          <select v-model="inviteForm.role" class="input" :disabled="!canManage">
+            <option value="viewer">Viewer</option>
+            <option value="editor">Editor</option>
+          </select>
+          <button class="button primary" type="submit" :disabled="!canManage">Invite member</button>
+        </form>
+        <div class="invite-list">
+          <div v-for="invitation in membersStore.invitations" :key="invitation.id" class="invite-row">
+            <div>
+              <strong>{{ invitation.email }}</strong>
+              <span>{{ invitation.role }} · expires {{ new Date(invitation.expiresAt).toLocaleDateString() }}</span>
+            </div>
+            <button class="button secondary" type="button" :disabled="!canManage" @click="revokeInvite(invitation)">Revoke</button>
+          </div>
+          <div v-if="!membersStore.invitations.length" class="empty-state compact">
+            <strong>No pending invitations</strong>
+            <span>Owner-created invitations will appear here.</span>
+          </div>
+        </div>
       </section>
     </aside>
   </section>

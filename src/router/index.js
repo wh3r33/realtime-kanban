@@ -12,6 +12,7 @@ import ProfileView from "../views/ProfileView.vue";
 import SettingsView from "../views/SettingsView.vue";
 import SystemStateView from "../views/SystemStateView.vue";
 import WelcomeView from "../views/WelcomeView.vue";
+import { authGuardDecision } from "./guards";
 
 const placeholder = (title, eyebrow = "realtime-kanban") => ({
   component: PlaceholderView,
@@ -20,9 +21,9 @@ const placeholder = (title, eyebrow = "realtime-kanban") => ({
 
 const routes = [
   { path: "/", component: WelcomeView },
-  { path: "/auth/login", alias: "/login", component: AuthView },
-  { path: "/auth/register", alias: "/register", component: AuthView },
-  { path: "/auth/forgot-password", alias: "/forgot-password", component: AuthView },
+  { path: "/auth/login", alias: "/login", component: AuthView, meta: { guestOnly: true } },
+  { path: "/auth/register", alias: "/register", component: AuthView, meta: { guestOnly: true } },
+  { path: "/auth/forgot-password", alias: "/forgot-password", component: AuthView, meta: { guestOnly: true } },
   { path: "/auth/invitations/:token?", alias: "/accept-invitation", component: AuthView },
   {
     path: "/",
@@ -38,7 +39,8 @@ const routes = [
       { path: "activity", redirect: "/boards" },
       { path: "members", redirect: "/boards" },
       { path: "settings", redirect: "/boards" },
-      { path: "profile", component: ProfileView },
+      { path: "profile", component: ProfileView, meta: { allowSetupRequired: true } },
+      { path: "profile/setup", component: ProfileView, meta: { allowSetupRequired: true } },
       { path: "bonus/analytics", alias: "analytics", ...placeholder("Analytics", "Bonus") },
       { path: "bonus/notifications", alias: "notifications", component: NotificationsView },
       { path: "bonus/search", alias: "search", ...placeholder("Search", "Bonus") },
@@ -57,10 +59,10 @@ const router = createRouter({
   routes
 });
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const authStore = useAuthStore();
-  if (to.meta.requiresAuth && !["authenticated", "loading", "setup_required"].includes(authStore.session.status)) return "/auth/login";
-  return true;
+  await authStore.initialize();
+  return authGuardDecision(to, authStore.session.status);
 });
 
 export default router;

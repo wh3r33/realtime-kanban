@@ -21,13 +21,17 @@ watch(
   () => task.value?.id,
   () => {
     const card = task.value;
-    if (!card) return;
+    if (!card) {
+      cardsStore.trackPresence({ cardId: null, mode: "viewing", field: null });
+      return;
+    }
     draft.title = card.title;
     draft.description = card.description;
     draft.assigneeId = card.assigneeId;
     draft.version = card.version || 0;
     commentDraft.value = "";
     editingCommentId.value = null;
+    cardsStore.trackPresence({ cardId: card.id, mode: "editing", field: "card" });
   },
   { immediate: true }
 );

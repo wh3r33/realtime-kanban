@@ -12,6 +12,32 @@ import { useAuthStore } from "./auth";
 
 const boardsRlsMessage = "Boards could not be loaded. Check Supabase RLS policies for boards and board_members.";
 
+function mapBoardRow(row) {
+  return {
+    id: row.id,
+    name: row.title,
+    title: row.title,
+    summary: row.description || "",
+    description: row.description || "",
+    ownerId: row.owner_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    updated: row.updated_at ? new Date(row.updated_at).toLocaleString() : "No activity yet"
+  };
+}
+
+function mapColumnRow(row) {
+  return {
+    id: row.id,
+    boardId: row.board_id,
+    name: row.title,
+    title: row.title,
+    position: row.position ?? 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
 export const useBoardsStore = defineStore("boards", {
   state: () => ({
     boards: [],
@@ -93,6 +119,29 @@ export const useBoardsStore = defineStore("boards", {
     },
     selectBoard(boardId) {
       this.selectedBoardId = boardId || null;
+    },
+    applyBoardChange(payload) {
+      if (payload.eventType === "DELETE") {
+        this.boards = this.boards.filter((board) => board.id !== payload.old.id);
+        if (this.selectedBoardId === payload.old.id) this.selectedBoardId = this.boards[0]?.id || null;
+        return;
+      }
+      const board = mapBoardRow(payload.new);
+      const index = this.boards.findIndex((item) => item.id === board.id);
+      if (index >= 0) this.boards[index] = { ...this.boards[index], ...board };
+      else this.boards.unshift(board);
+    },
+    applyColumnChange(payload) {
+      if (payload.eventType === "DELETE") {
+        this.columns = this.columns.filter((column) => column.id !== payload.old.id);
+        return;
+      }
+      const column = mapColumnRow(payload.new);
+      if (column.boardId !== this.selectedBoardId) return;
+      const index = this.columns.findIndex((item) => item.id === column.id);
+      if (index >= 0) this.columns[index] = column;
+      else this.columns.push(column);
+      this.columns.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
     }
   }
 });

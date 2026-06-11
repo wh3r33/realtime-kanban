@@ -58,7 +58,8 @@ function mapCard(row) {
     history: [],
     updatedAt: row.updated_at ? new Date(row.updated_at).toLocaleString() : "",
     version: row.version || 1,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    deletedAt: row.deleted_at || null
   };
 }
 
@@ -144,6 +145,7 @@ export async function getBoardCards(boardId) {
     .from("cards")
     .select("*, columns(title)")
     .eq("board_id", boardId)
+    .is("deleted_at", null)
     .order("position", { ascending: true });
   warnSupabaseError("cards list failed", queryError);
   return { data: (data || []).map(mapCard), error: isSupabaseSetupError(queryError) ? supabaseSetupError("Cards could not be loaded from Supabase") : queryError };

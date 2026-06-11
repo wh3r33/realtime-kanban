@@ -30,6 +30,12 @@ export function subscribeToBoard(boardId, handlers = {}) {
     mode = "supabase";
     supabaseChannel = supabase
       .channel(channelName)
+      .on("presence", { event: "sync" }, () => handlers.onPresenceSync?.(supabaseChannel.presenceState()))
+      .on("presence", { event: "join" }, ({ key, newPresences }) => handlers.onPresenceJoin?.({ key, presences: newPresences }))
+      .on("presence", { event: "leave" }, ({ key, leftPresences }) => handlers.onPresenceLeave?.({ key, presences: leftPresences }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "boards", filter: `id=eq.${boardId}` }, (payload) =>
+        handlers.onDatabaseChange?.({ table: "boards", payload })
+      )
       .on("postgres_changes", { event: "*", schema: "public", table: "cards", filter: `board_id=eq.${boardId}` }, (payload) =>
         handlers.onDatabaseChange?.({ table: "cards", payload })
       )
@@ -42,11 +48,21 @@ export function subscribeToBoard(boardId, handlers = {}) {
       .on("postgres_changes", { event: "*", schema: "public", table: "board_members", filter: `board_id=eq.${boardId}` }, (payload) =>
         handlers.onDatabaseChange?.({ table: "board_members", payload })
       )
-      .subscribe();
+      .subscribe((status) => handlers.onStatus?.(status));
   }
 
   return {
     mode,
+    track(presence) {
+      return supabaseChannel?.track({
+        ...presence,
+        tabId,
+        online_at: new Date().toISOString()
+      });
+    },
+    untrack() {
+      return supabaseChannel?.untrack();
+    },
     publish(event) {
       const payload = normalizeEvent(event);
       broadcastChannel?.postMessage(payload);

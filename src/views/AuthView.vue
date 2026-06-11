@@ -34,7 +34,7 @@ const copy = computed(() => ({
   },
   invite: {
     title: "Accept invitation",
-    body: "Invitation acceptance is not implemented yet.",
+    body: "Sign in with the invited email, then accept the board invitation.",
     submit: "Accept invite"
   }
 }[mode.value]));
@@ -49,16 +49,27 @@ const form = reactive({
 async function submit() {
   busy.value = true;
   message.value = "";
-  const result = await authStore.submitAuth(mode.value, {
-    name: form.name,
-    email: form.email,
-    password: form.password,
-    role: form.role,
-    token: route.params.token || "local-invite"
-  });
+  let result;
+  if (mode.value === "invite") {
+    if (!authStore.isAuthenticated) {
+      const signInResult = await authStore.submitAuth("login", {
+        email: form.email,
+        password: form.password
+      });
+      if (!signInResult.ok) result = signInResult;
+    }
+    if (!result) result = await authStore.acceptInvitation(route.params.token || route.query.token);
+  } else {
+    result = await authStore.submitAuth(mode.value, {
+      name: form.name,
+      email: form.email,
+      password: form.password,
+      role: form.role
+    });
+  }
   busy.value = false;
   message.value = result.message;
-  if (result.ok && mode.value !== "forgot") router.push("/boards");
+  if (result.ok && mode.value !== "forgot") router.push(result.boardId ? `/boards/${result.boardId}` : route.query.redirect || "/boards");
 }
 </script>
 
@@ -95,15 +106,6 @@ async function submit() {
       <label v-if="mode !== 'forgot'">
         Password
         <input v-model="form.password" class="input" type="password" autocomplete="current-password" required />
-      </label>
-
-      <label v-if="mode === 'invite'">
-        Requested role
-        <select v-model="form.role" class="input">
-          <option value="viewer">Viewer</option>
-          <option value="editor">Editor</option>
-          <option value="owner">Owner</option>
-        </select>
       </label>
 
       <p v-if="message" class="security-note" role="status">{{ message }}</p>
