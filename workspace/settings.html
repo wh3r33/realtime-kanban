@@ -6,34 +6,35 @@
     <title>Settings - realtime-kanban</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@1,600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../styles.css" />
   </head>
-  <body data-page="settings">
+  <body data-page="settings" data-route="/boards/:boardId/settings">
+    <!-- Future Vue route: /boards/:boardId/settings -->
     <main class="app-shell">
       <div class="workspace-noise"></div>
       <header class="glass-topbar">
         <a class="brand-mark compact" href="../index.html">realtime-kanban</a>
         <nav class="nav-capsule" data-nav>
           <a href="boards.html">Boards</a>
-          <a href="board.html">Board</a>
-          <a href="activity.html">Activity</a>
-          <a href="members.html">Members</a>
-          <a href="settings.html">Settings</a>
+          <a href="board.html" data-board-route="board">Board</a>
+          <a href="activity.html" data-board-route="activity">Activity</a>
+          <a href="members.html" data-board-route="members">Members</a>
+          <a href="settings.html" data-board-route="settings">Settings</a>
         </nav>
         <a class="profile-button" href="profile.html">NN</a>
       </header>
 
       <section class="page-header settings-hero reveal">
         <div class="header-line">
-          <p class="kicker">Realtime System Control Center</p>
+          <p class="kicker" data-selected-board-label>Realtime System Control Center</p>
           <div class="board-meta">
             <span class="status-badge live">LIVE</span>
             <span class="status-badge rls">RLS ACTIVE</span>
             <span class="status-badge versioned">VERSIONED</span>
           </div>
         </div>
-        <h1>Operational controls for a distributed board.</h1>
+        <h1>Operational controls for <span data-selected-board-title>a distributed board</span>.</h1>
         <p>Board identity, permissions, presence, and conflict strategy are grouped by how the realtime system actually behaves.</p>
       </section>
 
@@ -56,6 +57,17 @@
             <strong>realtime-kanban.local/workspace/board</strong>
           </div>
           <button class="button secondary" data-open-invite type="button">Copy share link</button>
+        </article>
+        <article class="settings-section-card" data-component="InviteList">
+          <div class="section-title-row">
+            <div>
+              <p class="kicker">Invitations</p>
+              <h2>Pending access</h2>
+            </div>
+            <span class="status-badge synced">LOCAL MOCK</span>
+          </div>
+          <div class="invite-list" data-invite-list></div>
+          <button class="button primary" data-open-invite type="button">Create invite</button>
         </article>
 
         <article class="settings-section-card">

@@ -1,11 +1,12 @@
 <!doctype html>
 <html lang="en">
-  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Activity - realtime-kanban</title><link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" /><link rel="stylesheet" href="../styles.css" /></head>
-  <body data-page="activity">
-    <main class="app-shell"><div class="workspace-noise"></div><header class="glass-topbar"><a class="brand-mark compact" href="../index.html">realtime-kanban</a><nav class="nav-capsule" data-nav><a href="boards.html">Boards</a><a href="board.html">Board</a><a href="activity.html">Activity</a><a href="members.html">Members</a><a href="settings.html">Settings</a></nav><a class="profile-button" href="profile.html">NN</a></header>
-      <section class="page-header reveal"><p class="kicker">History of Changes</p><h1>Every board action has a readable trail.</h1></section>
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Activity - realtime-kanban</title><link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@1,600&display=swap" rel="stylesheet" /><link rel="stylesheet" href="../styles.css" /></head>
+  <body data-page="activity" data-route="/boards/:boardId/activity">
+    <!-- Future Vue route: /boards/:boardId/activity -->
+    <main class="app-shell"><div class="workspace-noise"></div><header class="glass-topbar"><a class="brand-mark compact" href="../index.html">realtime-kanban</a><nav class="nav-capsule" data-nav><a href="boards.html">Boards</a><a href="board.html" data-board-route="board">Board</a><a href="activity.html" data-board-route="activity">Activity</a><a href="members.html" data-board-route="members">Members</a><a href="settings.html" data-board-route="settings">Settings</a></nav><a class="profile-button" href="profile.html">NN</a></header>
+      <section class="page-header reveal"><p class="kicker" data-selected-board-label>History of Changes</p><h1><span data-selected-board-title>Every board</span> action has a readable trail.</h1></section>
       <div class="filter-bar reveal" data-filter-group><button class="active" data-filter="all">All</button><button data-filter="cards">Cards</button><button data-filter="members">Members</button><button data-filter="conflicts">Conflicts</button><button data-filter="system">System</button></div>
-      <section class="timeline panel glass reveal">
+      <section class="timeline panel glass reveal" data-component="ActivityFeed" data-activity-timeline>
         <article data-type="cards"><span class="tiny-avatar">NN</span><div><strong>Created card</strong><p>NN User created API Task in Backlog.</p><time>09:42</time></div></article>
         <article data-type="cards"><span class="tiny-avatar">02</span><div><strong>Moved card</strong><p>User 02 moved Design System to Todo.</p><time>09:48</time></div></article>
         <article data-type="cards"><span class="tiny-avatar">03</span><div><strong>Edited description</strong><p>User 03 updated WebSocket Layer acceptance notes.</p><time>10:03</time></div></article>

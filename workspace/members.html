@@ -6,33 +6,34 @@
     <title>Members - realtime-kanban</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@1,600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../styles.css" />
   </head>
-  <body data-page="members">
+  <body data-page="members" data-route="/boards/:boardId/members">
+    <!-- Future Vue route: /boards/:boardId/members -->
     <main class="app-shell">
       <div class="workspace-noise"></div>
       <header class="glass-topbar">
         <a class="brand-mark compact" href="../index.html">realtime-kanban</a>
         <nav class="nav-capsule" data-nav>
           <a href="boards.html">Boards</a>
-          <a href="board.html">Board</a>
-          <a href="activity.html">Activity</a>
-          <a href="members.html">Members</a>
-          <a href="settings.html">Settings</a>
+          <a href="board.html" data-board-route="board">Board</a>
+          <a href="activity.html" data-board-route="activity">Activity</a>
+          <a href="members.html" data-board-route="members">Members</a>
+          <a href="settings.html" data-board-route="settings">Settings</a>
         </nav>
         <button class="button dark" data-open-invite type="button">Invite Member</button>
       </header>
 
       <section class="page-header reveal">
         <div class="header-line">
-          <p class="kicker">Members & Roles</p>
+          <p class="kicker" data-selected-board-label>Members & Roles</p>
           <div class="board-meta">
             <span class="status-badge live">LIVE</span>
             <span class="status-badge synced">SYNCED</span>
           </div>
         </div>
-        <h1>Permissions, presence, and activity at a glance.</h1>
+        <h1><span data-selected-board-title>Permissions</span>, presence, and activity at a glance.</h1>
       </section>
 
       <section class="presence-strip reveal" aria-label="Realtime member presence">
@@ -161,6 +162,13 @@
             </div>
             <div class="share-box">https://realtime-kanban.local/invite/mock</div>
             <button class="button primary" data-open-invite type="button">Open invite modal</button>
+          </section>
+          <section class="settings-section-card" data-component="InviteList">
+            <div class="section-title-row">
+              <p class="kicker">Pending Invites</p>
+              <span class="status-badge online">LOCAL</span>
+            </div>
+            <div class="invite-list" data-invite-list></div>
           </section>
         </aside>
       </section>
