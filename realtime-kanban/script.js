@@ -114,6 +114,7 @@ function badgeClass(label) {
 }
 
 function renderAvatars() {
+  if (!miniAvatars) return;
   miniAvatars.innerHTML = users
     .map(
       (user) =>
@@ -123,6 +124,7 @@ function renderAvatars() {
 }
 
 function renderBoard() {
+  if (!board) return;
   board.innerHTML = columns
     .map((column) => {
       const columnTasks = tasks.filter((task) => task.column === column);
@@ -215,6 +217,7 @@ function moveTask(taskId, targetColumn, announce = false) {
 }
 
 function renderActivity() {
+  if (!activityFeed || !editingNow) return;
   activityFeed.innerHTML = activities
     .slice(0, 6)
     .map(
@@ -244,13 +247,13 @@ function renderActivity() {
 function addActivity(message) {
   activities.unshift(message);
   activities = activities.slice(0, 10);
-  lastChanged.textContent = "Last change just now";
+  if (lastChanged) lastChanged.textContent = "Last change just now";
   renderActivity();
 }
 
 function openDrawer(taskId) {
   const task = tasks.find((item) => item.id === taskId);
-  if (!task) return;
+  if (!task || !drawer || !drawerTitle || !drawerContent) return;
 
   selectedTaskId = taskId;
   drawerTitle.textContent = task.title;
@@ -290,15 +293,21 @@ function openDrawer(taskId) {
 }
 
 function closeTaskDrawer() {
+  if (!drawer) return;
   drawer.classList.remove("open");
   drawer.setAttribute("aria-hidden", "true");
 }
 
 function showToast(message) {
+  if (!toastStack) return;
   const toast = document.createElement("div");
   toast.className = "toast";
-  toast.innerHTML = `<span>${message}</span>`;
+  toast.innerHTML = `<span>${message}</span>${message.includes("moved") ? '<button type="button" data-undo>Undo</button>' : ""}`;
   toastStack.appendChild(toast);
+  toast.querySelector("[data-undo]")?.addEventListener("click", () => {
+    showToast("Move reverted in mock history");
+    toast.remove();
+  });
   window.setTimeout(() => {
     toast.style.opacity = "0";
     toast.style.transform = "translateY(10px)";
@@ -360,29 +369,145 @@ function bootWorkspace() {
   window.setTimeout(() => showToast("Workspace synced with 4 online users"), 800);
   window.setInterval(randomRealtimeEvent, 6200);
   window.setInterval(() => {
-    lastChanged.textContent = `Last change ${Math.floor(Math.random() * 4) + 1}s ago`;
+    if (lastChanged) lastChanged.textContent = `Last change ${Math.floor(Math.random() * 4) + 1}s ago`;
   }, 2600);
 }
 
-enterButton.addEventListener("click", () => {
-  document.body.classList.add("app-transition");
-  window.setTimeout(() => {
-    welcome.hidden = true;
-    workspace.hidden = false;
-    workspace.classList.add("active");
-    bootWorkspace();
-  }, 520);
+enterButton?.addEventListener("click", () => {
+  window.location.href = "workspace/boards.html";
 });
 
 if (new URLSearchParams(window.location.search).get("workspace") === "1") {
-  welcome.hidden = true;
-  workspace.hidden = false;
-  workspace.classList.add("active");
+  if (welcome) welcome.hidden = true;
+  if (workspace) {
+    workspace.hidden = false;
+    workspace.classList.add("active");
+  }
   bootWorkspace();
 }
 
-closeDrawer.addEventListener("click", closeTaskDrawer);
+closeDrawer?.addEventListener("click", closeTaskDrawer);
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeTaskDrawer();
 });
+
+function initActiveNavigation() {
+  const current = window.location.pathname.split("/").pop() || "index.html";
+  document.querySelectorAll("[data-nav] a").forEach((link) => {
+    if (link.getAttribute("href")?.split("/").pop() === current) link.classList.add("active");
+  });
+}
+
+function openModal(title, body, actionLabel = "Done") {
+  const root = document.getElementById("modalRoot");
+  if (!root) return;
+  root.innerHTML = `
+    <div class="modal-backdrop" data-close-modal>
+      <section class="modal glass" role="dialog" aria-modal="true">
+        <button class="icon-button modal-close" data-close-modal type="button" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+        <p class="kicker">realtime-kanban</p>
+        <h2>${title}</h2>
+        <p>${body}</p>
+        <button class="button primary" data-close-modal type="button">${actionLabel}</button>
+      </section>
+    </div>
+  `;
+  root.querySelectorAll("[data-close-modal]").forEach((item) => item.addEventListener("click", (event) => {
+    if (event.target === item || item.matches("button")) root.innerHTML = "";
+  }));
+}
+
+function initInviteModal() {
+  document.querySelectorAll("[data-open-invite]").forEach((button) => {
+    button.addEventListener("click", () => openModal("Invite member", "Mock invite prepared for User 03 as Editor. Share link copied in prototype state.", "Send invite"));
+  });
+}
+
+function initConflictModal() {
+  document.querySelectorAll("[data-conflict-demo]").forEach((button) => {
+    button.addEventListener("click", () => openModal("Conflict preview", "Versioned last-write-wins will keep the newest change, preserve rollback history, and show both authors before resolving.", "Resolve mock conflict"));
+  });
+}
+
+function initFilters() {
+  const group = document.querySelector("[data-filter-group]");
+  if (!group) return;
+  group.addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    group.querySelectorAll("button").forEach((item) => item.classList.remove("active"));
+    button.classList.add("active");
+    const filter = button.dataset.filter;
+    document.querySelectorAll(".timeline article").forEach((item) => {
+      item.hidden = filter !== "all" && item.dataset.type !== filter;
+    });
+  });
+}
+
+function initSearch() {
+  const input = document.getElementById("searchInput");
+  if (!input) return;
+  input.addEventListener("input", () => {
+    const value = input.value.trim().toLowerCase();
+    document.querySelectorAll("[data-search]").forEach((item) => {
+      item.hidden = value && !item.dataset.search.includes(value);
+    });
+  });
+}
+
+function initNotifications() {
+  document.querySelectorAll("[data-notification]").forEach((item) => {
+    item.addEventListener("click", () => item.classList.toggle("unread"));
+  });
+}
+
+function initOffline() {
+  const retry = document.getElementById("retrySync");
+  retry?.addEventListener("click", () => {
+    document.getElementById("connectionBadge").textContent = "ONLINE";
+    document.getElementById("connectionBadge").className = "status-badge live";
+    document.getElementById("offlineQueue").innerHTML = '<div class="empty-state">Synced</div>';
+    showToast("Offline queue replayed");
+  });
+}
+
+function initAiAssistant() {
+  const output = document.getElementById("aiOutput");
+  document.getElementById("generateAi")?.addEventListener("click", () => {
+    output.innerHTML = "<li>Confirm realtime payload shape</li><li>Add rollback checkpoint</li><li>Write card movement tests</li><li>Request editor review</li>";
+    showToast("AI checklist generated");
+  });
+  document.querySelectorAll("[data-ai-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelectorAll("[data-ai-mode]").forEach((item) => item.classList.remove("active"));
+      button.classList.add("active");
+    });
+  });
+}
+
+function initBoardCards() {
+  document.querySelectorAll(".board-card[data-board]").forEach((card) => {
+    card.addEventListener("click", () => {
+      window.location.href = "board.html";
+    });
+  });
+}
+
+function initStaticApp() {
+  initActiveNavigation();
+  initInviteModal();
+  initConflictModal();
+  initFilters();
+  initSearch();
+  initNotifications();
+  initOffline();
+  initAiAssistant();
+  initBoardCards();
+  if (document.body.dataset.page === "board") bootWorkspace();
+  if (document.body.dataset.page && document.body.dataset.page !== "welcome") {
+    window.setTimeout(() => showToast("Realtime mock channel connected"), 900);
+  }
+}
+
+initStaticApp();

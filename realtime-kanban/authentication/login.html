@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - realtime-kanban</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body data-page="login">
+    <main class="auth-shell">
+      <section class="brand-pane reveal">
+        <a class="brand-mark" href="../index.html">realtime-kanban</a>
+        <span class="system-badge small"><span class="pulse-dot"></span>Live workspace access</span>
+        <h1 class="auth-title">Return to the board without losing the thread.</h1>
+        <p>Presence, locks and sync state are waiting in your creative workspace.</p>
+      </section>
+      <form class="form-card glass reveal">
+        <p class="kicker">Secure Sign In</p>
+        <label>Email<input class="input" type="email" placeholder="nn.user@example.com" /></label>
+        <label>Password<input class="input" type="password" placeholder="Password" /></label>
+        <button class="button primary" type="button">Log in</button>
+        <div class="form-links">
+          <a href="register.html">Create account</a>
+          <a href="forgot-password.html">Forgot password?</a>
+        </div>
+      </form>
+    </main>
+    <div id="toastStack" class="toast-stack"></div>
+    <script src="../script.js"></script>
+  </body>
+</html>
