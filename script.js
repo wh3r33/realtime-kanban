@@ -393,6 +393,7 @@ document.addEventListener("keydown", (event) => {
     closeTaskDrawer();
     const modalRoot = document.getElementById("modalRoot");
     if (modalRoot) modalRoot.innerHTML = "";
+    document.querySelectorAll("[data-custom-select].open").forEach((select) => closeCustomSelect(select));
   }
 });
 
@@ -432,6 +433,125 @@ function initInviteModal() {
 function initConflictModal() {
   document.querySelectorAll("[data-conflict-demo]").forEach((button) => {
     button.addEventListener("click", () => openModal("Conflict preview", "Versioned last-write-wins will keep the newest change, preserve rollback history, and show both authors before resolving.", "Resolve mock conflict"));
+  });
+}
+
+function closeCustomSelect(select) {
+  const trigger = select.querySelector("[data-custom-select-trigger]");
+  select.classList.remove("open");
+  trigger?.setAttribute("aria-expanded", "false");
+}
+
+function openCustomSelect(select) {
+  const trigger = select.querySelector("[data-custom-select-trigger]");
+  document.querySelectorAll("[data-custom-select].open").forEach((item) => {
+    if (item !== select) closeCustomSelect(item);
+  });
+  select.classList.add("open");
+  trigger?.setAttribute("aria-expanded", "true");
+}
+
+function setCustomSelectOption(select, option) {
+  const valueInput = select.querySelector("[data-custom-select-value]");
+  const title = select.querySelector("[data-custom-select-title]");
+  const description = select.querySelector("[data-custom-select-description]");
+  const options = Array.from(select.querySelectorAll("[data-custom-select-menu] [data-value]"));
+
+  if (valueInput) valueInput.value = option.dataset.value || "";
+  if (title) title.textContent = option.dataset.title || option.textContent.trim();
+  if (description) description.textContent = option.dataset.description || "";
+
+  options.forEach((item) => {
+    const isActive = item === option;
+    item.classList.toggle("active", isActive);
+    item.setAttribute("aria-selected", String(isActive));
+  });
+
+  closeCustomSelect(select);
+  showToast(`Conflict strategy set to ${option.dataset.title}`);
+}
+
+function initCustomSelects() {
+  document.querySelectorAll("[data-custom-select]").forEach((select) => {
+    const trigger = select.querySelector("[data-custom-select-trigger]");
+    const options = Array.from(select.querySelectorAll("[data-custom-select-menu] [data-value]"));
+    if (!trigger || !options.length) return;
+
+    trigger.addEventListener("click", () => {
+      if (select.classList.contains("open")) closeCustomSelect(select);
+      else openCustomSelect(select);
+    });
+
+    trigger.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openCustomSelect(select);
+        options.find((option) => option.classList.contains("active"))?.focus();
+      }
+    });
+
+    options.forEach((option, index) => {
+      option.addEventListener("click", () => setCustomSelectOption(select, option));
+      option.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          setCustomSelectOption(select, option);
+        }
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          options[(index + 1) % options.length].focus();
+        }
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          options[(index - 1 + options.length) % options.length].focus();
+        }
+      });
+    });
+  });
+
+  document.addEventListener("click", (event) => {
+    document.querySelectorAll("[data-custom-select].open").forEach((select) => {
+      if (!select.contains(event.target)) closeCustomSelect(select);
+    });
+  });
+}
+
+function initRealtimeStatus() {
+  const syncText = document.querySelector("[data-sync-text]");
+  const liveStatus = document.querySelector("[data-live-status]");
+  const feed = document.querySelector("[data-realtime-feed]");
+  if (!syncText && !liveStatus && !feed) return;
+
+  const events = [
+    "NN User editing Design System",
+    "User 02 moved API Task to Review",
+    "Guest User viewing board",
+    "Presence synced across 4 members"
+  ];
+  let index = 0;
+
+  window.setInterval(() => {
+    index = (index + 1) % events.length;
+    if (syncText) syncText.textContent = `Live · heartbeat ${index + 1}s ago`;
+    if (liveStatus) liveStatus.textContent = index % 2 ? "SYNCED" : "LIVE";
+    if (feed) {
+      feed.prepend(Object.assign(document.createElement("span"), { textContent: events[index] }));
+      while (feed.children.length > 3) feed.lastElementChild.remove();
+    }
+  }, 2800);
+}
+
+function initRoleToggles() {
+  const roleOrder = ["viewer", "editor"];
+  document.querySelectorAll("[data-role-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const current = roleOrder.find((role) => button.classList.contains(role)) || "viewer";
+      const next = roleOrder[(roleOrder.indexOf(current) + 1) % roleOrder.length];
+      roleOrder.forEach((role) => button.classList.remove(role));
+      button.classList.add(next);
+      button.textContent = next.toUpperCase();
+      showToast(`Mock role changed to ${next.toUpperCase()}`);
+    });
   });
 }
 
@@ -518,6 +638,9 @@ function initStaticApp() {
   initOffline();
   initAiAssistant();
   initBoardCards();
+  initCustomSelects();
+  initRealtimeStatus();
+  initRoleToggles();
   if (document.body.dataset.page === "board") bootWorkspace();
   if (document.body.dataset.page && document.body.dataset.page !== "welcome") {
     window.setTimeout(() => showToast("Realtime mock channel connected"), 900);
