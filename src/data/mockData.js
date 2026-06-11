@@ -1,8 +1,8 @@
 export const boards = [
-  { id: "board-main", name: "Product Roadmap", summary: "Priorities, milestones and launch sequencing.", cards: 28, online: 3, columns: 5, updated: "Last activity 2m ago" },
-  { id: "board-design", name: "Frontend Design", summary: "Premium surfaces, interaction polish and visual QA.", cards: 19, online: 2, columns: 5, updated: "User 02 edited a card" },
-  { id: "board-realtime", name: "Realtime Engine", summary: "Presence, locks, rollback and event delivery.", cards: 34, online: 4, columns: 5, updated: "Conflict resolved 4m ago" },
-  { id: "board-qa", name: "QA Review", summary: "Regression passes, blocked states and acceptance notes.", cards: 12, online: 1, columns: 4, updated: "Guest User joined" }
+  { id: "board-main", name: "Product Roadmap", summary: "Priorities, milestones and launch sequencing.", cards: 28, members: 8, activity: 143, online: 3, columns: 5, updated: "Last activity 2m ago" },
+  { id: "board-design", name: "Frontend Design", summary: "Premium surfaces, interaction polish and visual QA.", cards: 19, members: 5, activity: 87, online: 2, columns: 5, updated: "User 02 edited a card" },
+  { id: "board-realtime", name: "Realtime Engine", summary: "Presence, locks, rollback and event delivery.", cards: 34, members: 6, activity: 121, online: 4, columns: 5, updated: "Conflict resolved 4m ago" },
+  { id: "board-qa", name: "QA Review", summary: "Regression passes, blocked states and acceptance notes.", cards: 12, members: 4, activity: 56, online: 1, columns: 4, updated: "Guest User joined" }
 ];
 
 export const columns = ["Backlog", "Todo", "In Progress", "Review", "Done"];

@@ -1,7 +1,12 @@
 import { createRouter, createWebHistory } from "vue-router";
 import AppShell from "../layouts/AppShell.vue";
+import ActivityView from "../views/ActivityView.vue";
 import BoardView from "../views/BoardView.vue";
+import BoardsView from "../views/BoardsView.vue";
+import MembersView from "../views/MembersView.vue";
 import PlaceholderView from "../views/PlaceholderView.vue";
+import ProfileView from "../views/ProfileView.vue";
+import SettingsView from "../views/SettingsView.vue";
 
 const placeholder = (title, eyebrow = "realtime-kanban") => ({
   component: PlaceholderView,
@@ -18,12 +23,12 @@ const routes = [
     path: "/",
     component: AppShell,
     children: [
-      { path: "boards", ...placeholder("Boards", "Workspace") },
+      { path: "boards", component: BoardsView },
       { path: "board", component: BoardView },
-      { path: "members", ...placeholder("Members", "Workspace") },
-      { path: "settings", ...placeholder("Settings", "Workspace") },
-      { path: "profile", ...placeholder("Profile", "Workspace") },
-      { path: "activity", ...placeholder("Activity", "Workspace") },
+      { path: "members", component: MembersView },
+      { path: "settings", component: SettingsView },
+      { path: "profile", component: ProfileView },
+      { path: "activity", component: ActivityView },
       { path: "analytics", ...placeholder("Analytics", "Bonus") },
       { path: "notifications", ...placeholder("Notifications", "Bonus") },
       { path: "search", ...placeholder("Search", "Bonus") },

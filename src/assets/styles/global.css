@@ -1347,6 +1347,24 @@ a {
   transition: transform var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease);
 }
 
+.board-card-topline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.board-card-topline small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.board-open-action {
+  align-self: end;
+}
+
 .board-card:hover {
   border-color: rgba(40, 85, 255, 0.34);
   box-shadow: 0 6px 8px rgba(40, 85, 255, 0.12);
