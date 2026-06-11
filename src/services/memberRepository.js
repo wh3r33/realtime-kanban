@@ -1,4 +1,4 @@
-import { isMissingSupabaseSchemaError, isSupabaseSetupError, migrationRequiredError, missingSupabaseEnvMessage, supabase, supabaseSetupError, warnSupabaseError } from "./supabaseClient";
+import { getCurrentUser, isMissingSupabaseSchemaError, isSupabaseSetupError, migrationRequiredError, missingSupabaseEnvMessage, supabase, supabaseSetupError, warnSupabaseError } from "./supabaseClient";
 import { createActivityLog } from "./activityRepository";
 
 function requireClient() {
@@ -22,6 +22,7 @@ function mapMember(row) {
     boardId: row.board_id,
     name,
     email: profile.email || "",
+    avatarUrl: profile.avatar_url || "",
     initials: initialsFor(name),
     color: "#2855FF",
     role: row.role,
@@ -45,23 +46,31 @@ function mapInvitation(row) {
   };
 }
 
+function logBoardMembersError(context, error) {
+  if (!error) return;
+  const details = [error.message, error.details, error.hint].filter(Boolean).join(" ");
+  console.warn(`[Supabase] ${context}: ${details || "unknown error"}${error.code ? ` (code ${error.code})` : ""}${error.status ? ` (status ${error.status})` : ""}`);
+}
+
 export async function listBoardMembers(boardId) {
   const { client, error } = requireClient();
   if (error) return { data: [], error };
   const { data, error: queryError } = await client
     .from("board_members")
-    .select("board_id, user_id, role, created_at, profiles(id, email, name, avatar_url)")
+    .select("board_id, user_id, role, created_at, profiles:profiles!board_members_user_id_fkey(id, email, name, avatar_url)")
     .eq("board_id", boardId)
     .order("created_at", { ascending: true });
   warnSupabaseError("board members list failed", queryError);
-  if (isMissingSupabaseSchemaError(queryError)) {
-    console.warn("[Supabase] board_members profile relation is unavailable; loading board member rows without profile details.");
+  logBoardMembersError("board members list failed", queryError);
+  if (queryError) {
+    console.warn("[Supabase] Loading board member rows without embedded profile details.");
     const fallback = await client
       .from("board_members")
       .select("board_id, user_id, role, created_at")
       .eq("board_id", boardId)
       .order("created_at", { ascending: true });
     warnSupabaseError("board members fallback list failed", fallback.error);
+    logBoardMembersError("board members fallback list failed", fallback.error);
     if (fallback.error) return { data: [], error: isSupabaseSetupError(fallback.error) ? supabaseSetupError("Board members could not be loaded from Supabase") : fallback.error };
 
     const rows = fallback.data || [];
@@ -70,6 +79,7 @@ export async function listBoardMembers(boardId) {
     if (userIds.length) {
       const profiles = await client.from("profiles").select("id, email, name, avatar_url").in("id", userIds);
       warnSupabaseError("board member profile fallback failed", profiles.error);
+      logBoardMembersError("board member profile fallback failed", profiles.error);
       if (!isMissingSupabaseSchemaError(profiles.error) && !profiles.error) {
         profilesById = Object.fromEntries((profiles.data || []).map((profile) => [profile.id, profile]));
       }
@@ -149,7 +159,7 @@ export async function updateMemberRole(boardId, userId, role) {
     .update({ role })
     .eq("board_id", boardId)
     .eq("user_id", userId)
-    .select("board_id, user_id, role, created_at, profiles(id, email, name, avatar_url)")
+    .select("board_id, user_id, role, created_at, profiles:profiles!board_members_user_id_fkey(id, email, name, avatar_url)")
     .maybeSingle();
   warnSupabaseError("board member role update failed", updateError);
   if (isMissingSupabaseSchemaError(updateError)) {
@@ -174,7 +184,7 @@ export async function removeBoardMember(boardId, userId) {
     .delete()
     .eq("board_id", boardId)
     .eq("user_id", userId)
-    .select("board_id, user_id, role, created_at, profiles(id, email, name, avatar_url)")
+    .select("board_id, user_id, role, created_at, profiles:profiles!board_members_user_id_fkey(id, email, name, avatar_url)")
     .maybeSingle();
   warnSupabaseError("board member remove failed", deleteError);
   if (isMissingSupabaseSchemaError(deleteError)) {

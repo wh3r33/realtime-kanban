@@ -46,6 +46,29 @@ const form = reactive({
   role: "viewer"
 });
 
+function normalizeAuthMessage(rawMessage, authMode) {
+  const message = (rawMessage || "").trim();
+  if (!message) {
+    if (authMode === "forgot") return "Check your email for a password reset link.";
+    return "Something went wrong. Please try again.";
+  }
+  if (authMode === "login" && /invalid.*(login|credential)|incorrect.*password|invalid email or password/i.test(message)) {
+    return "Invalid email or password.";
+  }
+  if (authMode === "register" && /already.*(registered|exists)|duplicate/i.test(message)) {
+    return "An account with that email already exists.";
+  }
+  if (authMode === "forgot") {
+    return /invalid.*email|not found|user not found/i.test(message)
+      ? "If that email exists, a reset link will be sent."
+      : "Could not send a reset link. Please try again.";
+  }
+  if (authMode === "invite") {
+    return "Could not accept the invitation. Please sign in with the invited email.";
+  }
+  return "Authentication failed. Please try again.";
+}
+
 async function submit() {
   busy.value = true;
   message.value = "";
@@ -68,7 +91,7 @@ async function submit() {
     });
   }
   busy.value = false;
-  message.value = result.message;
+  message.value = result.ok ? result.message : normalizeAuthMessage(result.message, mode.value);
   if (result.ok && mode.value !== "forgot") router.push(result.boardId ? `/boards/${result.boardId}` : route.query.redirect || "/boards");
 }
 </script>
@@ -100,22 +123,28 @@ async function submit() {
 
       <label>
         Email
-        <input v-model="form.email" class="input" type="email" autocomplete="email" required />
+        <input v-model="form.email" class="input" type="email" :autocomplete="mode === 'forgot' ? 'email' : 'username'" required />
       </label>
 
       <label v-if="mode !== 'forgot'">
         Password
-        <input v-model="form.password" class="input" type="password" autocomplete="current-password" required />
+        <input
+          v-model="form.password"
+          class="input"
+          type="password"
+          :autocomplete="mode === 'register' ? 'new-password' : 'current-password'"
+          required
+        />
       </label>
 
       <p v-if="message" class="security-note" role="status">{{ message }}</p>
 
       <button class="button primary" type="submit" :disabled="busy">{{ busy ? "Working..." : copy.submit }}</button>
 
-      <div class="form-links">
-        <RouterLink v-if="mode !== 'login'" to="/auth/login">Sign in</RouterLink>
-        <RouterLink v-if="mode !== 'register'" to="/auth/register">Create account</RouterLink>
-        <RouterLink v-if="mode !== 'forgot'" to="/auth/forgot-password">Forgot password</RouterLink>
+      <div class="form-links auth-links">
+        <RouterLink v-if="mode !== 'login'" class="auth-link-pill" to="/auth/login">Sign in</RouterLink>
+        <RouterLink v-if="mode !== 'register'" class="auth-link-pill" to="/auth/register">Create account</RouterLink>
+        <RouterLink v-if="mode !== 'forgot'" class="auth-link-pill" to="/auth/forgot-password">Forgot password</RouterLink>
       </div>
     </form>
   </main>

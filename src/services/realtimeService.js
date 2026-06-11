@@ -12,11 +12,12 @@ function normalizeEvent(event) {
   };
 }
 
-export function subscribeToBoard(boardId, handlers = {}) {
+export function subscribeToBoard(boardId, handlers = {}, options = {}) {
   const channelName = `${CHANNEL_PREFIX}:${boardId}`;
   let broadcastChannel = null;
   let supabaseChannel = null;
   let mode = "broadcast";
+  const optionalTables = options.optionalTables || {};
 
   if (typeof BroadcastChannel !== "undefined") {
     broadcastChannel = new BroadcastChannel(channelName);
@@ -40,12 +41,6 @@ export function subscribeToBoard(boardId, handlers = {}) {
         .on("postgres_changes", { event: "*", schema: "public", table: "cards", filter: `board_id=eq.${boardId}` }, (payload) =>
           handlers.onDatabaseChange?.({ table: "cards", payload })
         )
-        .on("postgres_changes", { event: "*", schema: "public", table: "card_checklist_items" }, (payload) =>
-          handlers.onDatabaseChange?.({ table: "card_checklist_items", payload })
-        )
-        .on("postgres_changes", { event: "*", schema: "public", table: "card_comments" }, (payload) =>
-          handlers.onDatabaseChange?.({ table: "card_comments", payload })
-        )
         .on("postgres_changes", { event: "*", schema: "public", table: "columns", filter: `board_id=eq.${boardId}` }, (payload) =>
           handlers.onDatabaseChange?.({ table: "columns", payload })
         )
@@ -54,20 +49,32 @@ export function subscribeToBoard(boardId, handlers = {}) {
         )
         .on("postgres_changes", { event: "*", schema: "public", table: "board_members", filter: `board_id=eq.${boardId}` }, (payload) =>
           handlers.onDatabaseChange?.({ table: "board_members", payload })
-        )
-        .subscribe((status, error) => {
-          if (error) console.warn("[Supabase] realtime subscription warning", error);
-          if (status === "SUBSCRIBED" && mode === "reconnecting") handlers.onReconnect?.();
-          if (status === "SUBSCRIBED") mode = "supabase";
-          if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) mode = "reconnecting";
-          handlers.onStatus?.(status);
-        });
+        );
+      if (optionalTables.card_checklist_items) {
+        supabaseChannel.on("postgres_changes", { event: "*", schema: "public", table: "card_checklist_items" }, (payload) =>
+          handlers.onDatabaseChange?.({ table: "card_checklist_items", payload })
+        );
+      }
+      if (optionalTables.card_comments) {
+        supabaseChannel.on("postgres_changes", { event: "*", schema: "public", table: "card_comments" }, (payload) =>
+          handlers.onDatabaseChange?.({ table: "card_comments", payload })
+        );
+      }
+      supabaseChannel.subscribe((status, error) => {
+        if (error) console.warn("[Supabase] realtime subscription warning", error);
+        if (status === "SUBSCRIBED" && mode === "reconnecting") handlers.onReconnect?.();
+        if (status === "SUBSCRIBED") mode = "supabase";
+        if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) mode = "reconnecting";
+        handlers.onStatus?.(status, error);
+      });
     } catch (error) {
       console.warn("[Supabase] realtime subscription unavailable; falling back to local tab sync.", error);
       mode = "broadcast";
       supabaseChannel = null;
       handlers.onStatus?.("CHANNEL_ERROR");
     }
+  } else {
+    handlers.onStatus?.("BROADCAST_FALLBACK");
   }
 
   return {

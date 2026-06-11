@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive } from "vue";
+import UserAvatar from "../components/UserAvatar.vue";
 import { useAuthStore } from "../stores/auth";
 import { useBoardsStore } from "../stores/boards";
 import { useMembersStore } from "../stores/members";
@@ -88,7 +89,13 @@ onMounted(async () => {
         :style="{ '--role-color': member.color }"
       >
         <div class="member-main-row">
-          <span class="member-avatar" :data-status="member.presence === 'online' ? 'online' : 'offline'">{{ member.initials }}</span>
+          <UserAvatar
+            class="member-avatar user-avatar"
+            :src="member.avatarUrl || ''"
+            :name="member.name"
+            :initials="member.initials"
+            :status="member.presence === 'online' ? 'online' : 'offline'"
+          />
           <div class="member-identity">
             <div class="member-name-row">
               <h2>{{ member.name }}</h2>

@@ -16,6 +16,7 @@ import {
 } from "../services/commentRepository";
 import { subscribeToBoard } from "../services/realtimeService";
 import { isSupabaseConfigured } from "../services/supabaseClient";
+import { hasConfirmedOptionalTable } from "../services/optionalTables";
 import { useAuthStore } from "./auth";
 import { useBoardsStore } from "./boards";
 import { useMembersStore } from "./members";
@@ -60,6 +61,14 @@ function createHistoryAction(type, before, after) {
     cardId: after?.id || before?.id,
     title: after?.title || before?.title || "Card"
   };
+}
+
+function hydrateCard(card) {
+  if (!card) return card;
+  const boardsStore = useBoardsStore();
+  const column = boardsStore.columnById(card.columnId);
+  const columnTitle = column?.title || card.column || card.columnId;
+  return columnTitle === card.column ? card : { ...card, column: columnTitle };
 }
 
 export const useCardsStore = defineStore("cards", {
@@ -111,7 +120,7 @@ export const useCardsStore = defineStore("cards", {
       this.loading = true;
       const boardsStore = useBoardsStore();
       const { data, error } = await boardsStore.loadBoardCards(boardId);
-      this.cards = data || [];
+      this.cards = (data || []).map((card) => hydrateCard(card));
       this.errorMessage = error?.message || "";
       if (!error) await this.loadChecklistItems(boardId);
       if (!error) await this.loadComments(boardId);
@@ -169,10 +178,43 @@ export const useCardsStore = defineStore("cards", {
       this.comments = data || [];
       return { comments: data || [] };
     },
+    resetWorkspace() {
+      this.realtime.unsubscribe?.();
+      this.cards = [];
+      this.comments = [];
+      this.checklistItemsByCardId = {};
+      this.selectedCardId = null;
+      this.undoHistory = [];
+      this.redoHistory = [];
+      this.movementError = null;
+      this.conflict = null;
+      this.seenRealtimeEvents = [];
+      this.loading = false;
+      this.errorMessage = "";
+      this.offline = {
+        isOnline: true,
+        queue: [],
+        syncing: false
+      };
+      this.realtime = {
+        boardId: null,
+        mode: "none",
+        unsubscribe: null,
+        lastEvent: null
+      };
+    },
     initializeRealtime(boardId) {
       if (!boardId) return;
       if (this.realtime.boardId === boardId && this.realtime.unsubscribe) return;
       this.realtime.unsubscribe?.();
+      const membersStore = useMembersStore();
+      membersStore.setPresenceConnecting();
+      const presenceTimeout = globalThis.setTimeout(() => {
+        if (membersStore.presenceStatus === "connecting") {
+          membersStore.setPresenceFailed("Presence unavailable: Supabase realtime did not respond");
+          useUiStore().setSyncState("partial", "Realtime presence timed out");
+        }
+      }, 10000);
       let subscription = null;
       subscription = subscribeToBoard(boardId, {
         onEvent: (event) => this.applyRemoteEvent(event),
@@ -195,9 +237,11 @@ export const useCardsStore = defineStore("cards", {
           await useUiStore().loadActivity(boardId);
           await useMembersStore().loadMembers(boardId);
         },
-        onStatus: (status) => {
+        onStatus: (status, error) => {
+          if (status !== "RECONNECTING") globalThis.clearTimeout(presenceTimeout);
           if (status === "SUBSCRIBED") {
             useUiStore().setSyncState("synced", "Realtime subscription active");
+            useMembersStore().setPresenceConnected("Presence live");
             const authStore = useAuthStore();
             subscription?.track?.({
               userId: authStore.currentUserId,
@@ -206,23 +250,36 @@ export const useCardsStore = defineStore("cards", {
               timestamp: new Date().toISOString()
             });
           } else if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) {
-            useUiStore().setSyncState("partial", `Realtime ${status.toLowerCase().replace(/_/g, " ")}`);
-            useMembersStore().setPresenceDisconnected();
+            const message = error?.message || `Realtime ${status.toLowerCase().replace(/_/g, " ")}`;
+            useUiStore().setSyncState("partial", message);
+            useMembersStore().setPresenceFailed(`Presence unavailable: ${message}`);
           } else if (status === "RECONNECTING") {
             useUiStore().setSyncState("partial", "Realtime переподключается");
+            useMembersStore().setPresenceConnecting("Presence reconnecting");
+          } else if (status === "BROADCAST_FALLBACK") {
+            useUiStore().setSyncState("partial", "Local tab sync only");
+            useMembersStore().setPresenceFailed("Presence unavailable: Supabase is not configured");
           }
+        }
+      }, {
+        optionalTables: {
+          card_checklist_items: hasConfirmedOptionalTable("card_checklist_items"),
+          card_comments: hasConfirmedOptionalTable("card_comments")
         }
       });
       this.realtime = {
         boardId,
         mode: subscription.mode,
-        unsubscribe: subscription.unsubscribe,
+        unsubscribe: () => {
+          globalThis.clearTimeout(presenceTimeout);
+          subscription.unsubscribe?.();
+        },
         publish: subscription.publish,
         track: subscription.track,
         untrack: subscription.untrack,
         lastEvent: null
       };
-      useUiStore().setSyncState(subscription.mode === "supabase" ? "synced" : "partial", subscription.mode === "supabase" ? "Realtime subscription active" : "Local tab sync only");
+      useUiStore().setSyncState("partial", subscription.mode === "supabase" ? "Realtime connecting" : "Local tab sync only");
     },
     hasSeenRealtimePayload(event) {
       const payload = event.payload || {};
@@ -267,7 +324,7 @@ export const useCardsStore = defineStore("cards", {
       this.redoHistory = [];
     },
     upsertCard(card, options = {}) {
-      const nextCard = clone(card);
+      const nextCard = hydrateCard(clone(card));
       const index = this.cards.findIndex((item) => item.id === nextCard.id);
       if (index >= 0) this.cards[index] = nextCard;
       else this.cards.push(nextCard);
@@ -284,7 +341,7 @@ export const useCardsStore = defineStore("cards", {
     },
     replaceCards(nextCards) {
       const byId = new Map(nextCards.map((card) => [card.id, card]));
-      this.cards = [...byId.values()];
+      this.cards = [...byId.values()].map((card) => hydrateCard(card));
     },
     normalizeColumnPositions(boardId, columnId) {
       const ordered = this.cardsForColumn(boardId, columnId);

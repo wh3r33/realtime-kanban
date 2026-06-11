@@ -46,8 +46,8 @@ watch(
   () => boardsStore.selectedBoardId,
   async (boardId) => {
     if (!boardId) return;
-    cardsStore.initializeRealtime(boardId);
     await loadBoardData(boardId);
+    cardsStore.initializeRealtime(boardId);
   },
   { immediate: true }
 );

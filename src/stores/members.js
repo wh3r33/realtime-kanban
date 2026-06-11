@@ -15,6 +15,7 @@ const fallbackMember = {
   id: null,
   name: "Unassigned",
   email: "",
+  avatarUrl: "",
   initials: "--",
   color: "#56534d",
   role: "viewer",
@@ -30,6 +31,8 @@ export const useMembersStore = defineStore("members", {
     locks: [],
     presenceByUserId: {},
     presenceConnected: false,
+    presenceStatus: "offline",
+    presenceMessage: "Presence offline",
     loading: false,
     errorMessage: "",
     invitationsSupported: true,
@@ -82,6 +85,7 @@ export const useMembersStore = defineStore("members", {
         boardId: row.board_id,
         role: row.role,
         joinedAt: row.created_at,
+        avatarUrl: row.profiles?.avatar_url || existing?.avatarUrl || "",
         presence: this.presenceByUserId[row.user_id] ? "online" : "offline"
       };
       const index = this.members.findIndex((item) => item.id === member.id);
@@ -109,14 +113,49 @@ export const useMembersStore = defineStore("members", {
       this.presenceByUserId = nextPresence;
       this.editingUsers = editing;
       this.presenceConnected = true;
+      this.presenceStatus = "online";
+      this.presenceMessage = "Presence live";
       this.members = this.members.map((member) => ({
         ...member,
         presence: nextPresence[member.id] ? "online" : "offline",
         activity: nextPresence[member.id]?.cardId ? "Editing a card" : member.activity
       }));
     },
+    resetWorkspace() {
+      this.members = [];
+      this.invitations = [];
+      this.editingUsers = [];
+      this.locks = [];
+      this.presenceByUserId = {};
+      this.presenceConnected = false;
+      this.presenceStatus = "offline";
+      this.presenceMessage = "Presence offline";
+      this.loading = false;
+      this.errorMessage = "";
+      this.invitationsSupported = true;
+    },
     setPresenceDisconnected() {
       this.presenceConnected = false;
+      this.presenceStatus = "offline";
+      this.presenceMessage = "Presence offline";
+      this.presenceByUserId = {};
+      this.editingUsers = [];
+      this.members = this.members.map((member) => ({ ...member, presence: "offline" }));
+    },
+    setPresenceConnecting(message = "Connecting to Supabase presence") {
+      this.presenceConnected = false;
+      this.presenceStatus = "connecting";
+      this.presenceMessage = message;
+    },
+    setPresenceConnected(message = "Presence live") {
+      this.presenceConnected = true;
+      this.presenceStatus = "online";
+      this.presenceMessage = message;
+    },
+    setPresenceFailed(message = "Presence unavailable") {
+      this.presenceConnected = false;
+      this.presenceStatus = "error";
+      this.presenceMessage = message;
       this.presenceByUserId = {};
       this.editingUsers = [];
       this.members = this.members.map((member) => ({ ...member, presence: "offline" }));

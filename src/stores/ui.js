@@ -73,6 +73,16 @@ export const useUiStore = defineStore("ui", {
       if (typeof document !== "undefined") document.documentElement.dataset.theme = theme;
       if (typeof window !== "undefined") window.localStorage.setItem("realtime-kanban:theme", theme);
     },
+    resetWorkspace() {
+      this.syncState = "idle";
+      this.syncText = "Realtime not connected";
+      this.lastChanged = "No changes loaded";
+      this.activityEvents = [];
+      this.notifications = [];
+      this.toasts = [];
+      this.isLoading = false;
+      this.errorMessage = "";
+    },
     toggleTheme() {
       this.setTheme(this.theme === "dark" ? "light" : "dark");
     },

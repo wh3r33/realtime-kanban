@@ -125,7 +125,7 @@ export async function getBoardCards(boardId) {
   if (error) return { data: [], error };
   const { data, error: queryError } = await client
     .from("cards")
-    .select("*, columns(title)")
+    .select("*")
     .eq("board_id", boardId)
     .eq("status", "active")
     .order("position", { ascending: true });
@@ -155,6 +155,73 @@ export async function createDefaultColumns(boardId) {
   const { data, error: queryError } = await client.from("columns").select("*").eq("board_id", boardId).order("position", { ascending: true });
   warnSupabaseError("default columns reload failed", queryError);
   return { data: (data || []).map(mapColumn), error: isSupabaseSetupError(queryError) ? supabaseSetupError("Default columns could not be reloaded from Supabase") : queryError };
+}
+
+export async function deleteBoard(boardId) {
+  const { client, error } = requireClient();
+  if (error) return { data: null, error };
+  const { data, error: deleteError } = await client.from("boards").delete().eq("id", boardId).select("id, title").maybeSingle();
+  warnSupabaseError("board delete failed", deleteError);
+  return {
+    data: data ? { id: data.id, title: data.title } : null,
+    error: isSupabaseSetupError(deleteError) ? supabaseSetupError("Board could not be deleted in Supabase") : deleteError
+  };
+}
+
+export async function transferBoardOwnership(boardId, newOwnerId) {
+  const { client, error } = requireClient();
+  if (error) return { data: null, error };
+  const { data: currentUser, error: userError } = await getCurrentUser();
+  if (userError || !currentUser) return { data: null, error: userError || new Error("No authenticated Supabase user.") };
+  if (!boardId || !newOwnerId) return { data: null, error: new Error("Board and target member are required.") };
+  if (currentUser.id === newOwnerId) return { data: null, error: new Error("Choose another member as the new owner.") };
+
+  const { data: memberRow, error: memberLookupError } = await client
+    .from("board_members")
+    .select("role")
+    .eq("board_id", boardId)
+    .eq("user_id", newOwnerId)
+    .maybeSingle();
+  warnSupabaseError("board ownership transfer member lookup failed", memberLookupError);
+  if (memberLookupError) return { data: null, error: isSupabaseSetupError(memberLookupError) ? supabaseSetupError("Board ownership could not be transferred in Supabase") : memberLookupError };
+  if (!memberRow) return { data: null, error: new Error("The selected member is not part of this board.") };
+
+  const previousOwnerRole = memberRow.role || "viewer";
+
+  const targetRoleUpdate = await client.from("board_members").update({ role: "owner" }).eq("board_id", boardId).eq("user_id", newOwnerId).select("board_id, user_id, role").maybeSingle();
+  warnSupabaseError("board ownership transfer target update failed", targetRoleUpdate.error);
+  if (targetRoleUpdate.error) {
+    return {
+      data: null,
+      error: isSupabaseSetupError(targetRoleUpdate.error) ? supabaseSetupError("Board ownership could not be transferred in Supabase") : targetRoleUpdate.error
+    };
+  }
+
+  const boardOwnerUpdate = await client.from("boards").update({ owner_id: newOwnerId }).eq("id", boardId).select("id, title, owner_id").maybeSingle();
+  warnSupabaseError("board ownership transfer board update failed", boardOwnerUpdate.error);
+  if (boardOwnerUpdate.error) {
+    await client.from("board_members").update({ role: previousOwnerRole }).eq("board_id", boardId).eq("user_id", newOwnerId);
+    return {
+      data: null,
+      error: isSupabaseSetupError(boardOwnerUpdate.error) ? supabaseSetupError("Board ownership could not be transferred in Supabase") : boardOwnerUpdate.error
+    };
+  }
+
+  const currentOwnerRoleUpdate = await client.from("board_members").update({ role: "editor" }).eq("board_id", boardId).eq("user_id", currentUser.id).select("board_id, user_id, role").maybeSingle();
+  warnSupabaseError("board ownership transfer current owner update failed", currentOwnerRoleUpdate.error);
+  if (currentOwnerRoleUpdate.error) {
+    await client.from("boards").update({ owner_id: currentUser.id }).eq("id", boardId);
+    await client.from("board_members").update({ role: previousOwnerRole }).eq("board_id", boardId).eq("user_id", newOwnerId);
+    return {
+      data: null,
+      error: isSupabaseSetupError(currentOwnerRoleUpdate.error) ? supabaseSetupError("Board ownership could not be transferred in Supabase") : currentOwnerRoleUpdate.error
+    };
+  }
+
+  return {
+    data: { boardId, ownerId: newOwnerId, previousOwnerId: currentUser.id },
+    error: null
+  };
 }
 
 export { getCurrentProfile, getCurrentUser };

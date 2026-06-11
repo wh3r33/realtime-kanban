@@ -21,7 +21,7 @@ function mapCard(row) {
     id: row.id,
     boardId: row.board_id,
     columnId: row.column_id,
-    column: row.columns?.title || row.column_id,
+    column: row.columns?.title || row.column_title || row.column_id,
     title: row.title,
     description: row.description || "",
     assigneeId: row.assigned_to,
@@ -76,13 +76,13 @@ export async function createCard(boardId, columnId, payload) {
     status: payload.status || "active",
     labels: payload.labels || []
   };
-  const { data, error: insertError } = await client.from("cards").insert(row).select("*, columns(title)").single();
+  const { data, error: insertError } = await client.from("cards").insert(row).select("*").single();
   warnSupabaseError("cards insert failed", insertError);
   return { data: data ? mapCard(data) : null, error: isSupabaseSetupError(insertError) ? supabaseSetupError("Card could not be created in Supabase") : insertError };
 }
 
 async function reloadCard(client, cardId) {
-  const { data, error } = await client.from("cards").select("*, columns(title)").eq("id", cardId).maybeSingle();
+  const { data, error } = await client.from("cards").select("*").eq("id", cardId).maybeSingle();
   warnSupabaseError("card conflict reload failed", error);
   return { data: data ? mapCard(data) : null, error };
 }
@@ -104,11 +104,14 @@ export async function updateCard(cardId, payload, expectedVersion) {
   patch.version = (before.version || 1) + 1;
   let query = client.from("cards").update(patch).eq("id", cardId);
   if (expectedVersion) query = query.eq("version", expectedVersion);
-  const { data, error: updateError } = await query.select("*, columns(title)").maybeSingle();
+  const { data, error: updateError } = await query.select("*").maybeSingle();
   warnSupabaseError("cards update failed", updateError);
   if (!updateError && !data) {
     const latest = await reloadCard(client, cardId);
     return conflictResult(latest.data);
+  }
+  if (isMissingSupabaseSchemaError(updateError)) {
+    return { data: null, error: supabaseSetupError("Card could not be updated. Check the cards schema and column relationships in Supabase.") };
   }
   return { data: data ? mapCard(data) : null, error: isSupabaseSetupError(updateError) ? supabaseSetupError("Card could not be updated in Supabase") : updateError };
 }
@@ -125,7 +128,7 @@ export async function deleteCard(cardId, expectedVersion) {
     .eq("id", cardId);
   if (expectedVersion) query = query.eq("version", expectedVersion);
   const { data, error: deleteError } = await query
-    .select("*, columns(title)")
+    .select("*")
     .maybeSingle();
   warnSupabaseError("cards delete failed", deleteError);
   if (isMissingSupabaseSchemaError(deleteError)) {
@@ -156,7 +159,7 @@ export async function moveCard(cardId, columnId, position, expectedVersion) {
     return { data: null, error: migrationRequiredError("Card move RPC") };
   }
   if (rpcError || !moved) return { data: null, error: isSupabaseSetupError(rpcError) ? supabaseSetupError("Card could not be moved in Supabase") : rpcError || new Error("Card move returned no row.") };
-  const { data, error: reloadError } = await client.from("cards").select("*, columns(title)").eq("id", cardId).maybeSingle();
+  const { data, error: reloadError } = await client.from("cards").select("*").eq("id", cardId).maybeSingle();
   warnSupabaseError("cards move reload failed", reloadError);
   return { data: data ? mapCard(data) : mapCard(moved), error: isSupabaseSetupError(reloadError) ? supabaseSetupError("Moved card could not be reloaded from Supabase") : reloadError };
 }
@@ -175,11 +178,11 @@ export async function restoreCard(cardId, expectedVersion) {
     .from("cards")
     .update({ status: "active", updated_by: (await getCurrentUser()).data?.id || null, version: (before.version || 1) + 1 })
     .eq("id", cardId)
-    .select("*, columns(title)")
+    .select("*")
     .maybeSingle();
   warnSupabaseError("cards restore failed", restoreError);
   if (restoreError || !restored) return { data: null, error: isSupabaseSetupError(restoreError) ? supabaseSetupError("Card could not be restored in Supabase") : restoreError || new Error("Card restore returned no row.") };
-  const { data, error: reloadError } = await client.from("cards").select("*, columns(title)").eq("id", cardId).maybeSingle();
+  const { data, error: reloadError } = await client.from("cards").select("*").eq("id", cardId).maybeSingle();
   warnSupabaseError("cards restore reload failed", reloadError);
   return { data: data ? mapCard(data) : mapCard(restored), error: isSupabaseSetupError(reloadError) ? supabaseSetupError("Restored card could not be reloaded from Supabase") : reloadError };
 }

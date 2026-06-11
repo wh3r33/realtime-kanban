@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from "vue";
+import UserAvatar from "./UserAvatar.vue";
 import { badgeClass } from "../utils/badges";
 import { useCardsStore } from "../stores/cards";
 import { useMembersStore } from "../stores/members";
@@ -72,7 +73,7 @@ const stateClass = computed(() => ({
     <div class="live-line" aria-hidden="true"></div>
     <div class="card-meta">
       <span class="assignee">
-        <span class="tiny-avatar" :style="{ '--ring': assignee.color }">{{ assignee.initials }}</span>
+        <UserAvatar class="tiny-avatar user-avatar" :src="assignee.avatarUrl || ''" :name="assignee.name" :initials="assignee.initials" />
         {{ assignee.name }}
       </span>
       <span class="status-badge" :class="badgeClass(task.status)">{{ task.status.toUpperCase() }}</span>

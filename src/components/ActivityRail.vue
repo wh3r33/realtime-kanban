@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
+import UserAvatar from "./UserAvatar.vue";
 import { generateAiSubtasks, prioritizeBoardCards } from "../services/aiAssistantService";
 import { useAuthStore } from "../stores/auth";
 import { useBoardsStore } from "../stores/boards";
@@ -103,7 +104,7 @@ async function saveToCard() {
     return;
   }
   if (result.error) {
-    aiError.value = `Ошибка сохранения: ${result.error.message || result.error}`;
+    aiError.value = result.error.code === "MIGRATION_REQUIRED" ? result.error.message : `Ошибка сохранения: ${result.error.message || result.error}`;
     return;
   }
   aiMessage.value = result.items.length ? "AI subtasks saved to card" : "Подзадачи уже есть в карточке";
@@ -161,16 +162,27 @@ function openFullAssistant() {
       <p class="rail-label">Presence</p>
       <div class="editing-now">
         <div v-for="member in membersStore.onlineMembers" :key="member.id" class="editing-item" data-component="EditingPresenceItem">
-          <strong>{{ member.name }}</strong>
-          <span>{{ membersStore.editorForCard(cardsStore.selectedCardId)?.userId === member.id ? "Редактирует выбранную карточку" : "Онлайн на доске" }}</span>
+          <UserAvatar class="tiny-avatar user-avatar" :src="member.avatarUrl || ''" :name="member.name" :initials="member.initials" />
+          <div>
+            <strong>{{ member.name }}</strong>
+            <span>{{ membersStore.editorForCard(cardsStore.selectedCardId)?.userId === member.id ? "Редактирует выбранную карточку" : "Онлайн на доске" }}</span>
+          </div>
         </div>
         <div v-for="presence in membersStore.editingUsers" :key="`${presence.userId}-${presence.cardId}`" class="editing-item">
-          <strong>{{ membersStore.memberById(presence.userId).name }}</strong>
-          <span>Редактирует карточку · {{ cardsStore.cardById(presence.cardId)?.title || presence.cardId }}</span>
+          <UserAvatar
+            class="tiny-avatar user-avatar"
+            :src="membersStore.memberById(presence.userId).avatarUrl || ''"
+            :name="membersStore.memberById(presence.userId).name"
+            :initials="membersStore.memberById(presence.userId).initials"
+          />
+          <div>
+            <strong>{{ membersStore.memberById(presence.userId).name }}</strong>
+            <span>Редактирует карточку · {{ cardsStore.cardById(presence.cardId)?.title || presence.cardId }}</span>
+          </div>
         </div>
         <div v-if="!membersStore.onlineMembers.length && !membersStore.editingUsers.length" class="editing-item">
-          <strong>{{ membersStore.presenceConnected ? "Никого онлайн" : "Presence подключается" }}</strong>
-          <span>{{ membersStore.presenceConnected ? "Другие участники появятся здесь." : "Ожидание Supabase presence channel." }}</span>
+          <strong>{{ membersStore.presenceConnected ? "Никого онлайн" : membersStore.presenceMessage }}</strong>
+          <span>{{ membersStore.presenceConnected ? "Другие участники появятся здесь." : "Realtime presence is not currently live." }}</span>
         </div>
       </div>
     </div>
@@ -184,9 +196,12 @@ function openFullAssistant() {
           :class="{ new: index === 0 }"
           data-component="ActivityItem"
         >
-          <strong>{{ event.title }}</strong>
-          <span>{{ membersStore.memberById(event.actorId).name }} · {{ event.body }}</span>
-          <time>{{ event.createdAt }}</time>
+          <UserAvatar class="tiny-avatar user-avatar" :src="membersStore.memberById(event.actorId).avatarUrl || ''" :name="membersStore.memberById(event.actorId).name" :initials="membersStore.memberById(event.actorId).initials" />
+          <div>
+            <strong>{{ event.title }}</strong>
+            <span>{{ membersStore.memberById(event.actorId).name }} · {{ event.body }}</span>
+            <time>{{ event.createdAt }}</time>
+          </div>
         </div>
         <div v-if="!uiStore.activityEvents.length" class="activity-item">
           <strong>No activity yet</strong>

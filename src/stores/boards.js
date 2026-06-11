@@ -12,6 +12,11 @@ import { useAuthStore } from "./auth";
 
 const boardsRlsMessage = "Boards could not be loaded. Check Supabase RLS policies for boards and board_members.";
 
+const savedLanguage = () => {
+  if (typeof window === "undefined") return "en";
+  return window.localStorage.getItem("realtime-kanban:language") || "en";
+};
+
 function mapBoardRow(row) {
   return {
     id: row.id,
@@ -44,7 +49,7 @@ export const useBoardsStore = defineStore("boards", {
     columns: [],
     selectedBoardId: null,
     boardSettings: {
-      language: "en",
+      language: savedLanguage(),
       conflictStrategy: "versioned",
       visibility: "private"
     },
@@ -61,6 +66,17 @@ export const useBoardsStore = defineStore("boards", {
   actions: {
     setError(error) {
       this.errorMessage = error?.message || "";
+    },
+    setLanguage(language) {
+      this.boardSettings.language = language;
+      if (typeof window !== "undefined") window.localStorage.setItem("realtime-kanban:language", language);
+    },
+    resetWorkspace() {
+      this.boards = [];
+      this.columns = [];
+      this.selectedBoardId = null;
+      this.loading = false;
+      this.errorMessage = "";
     },
     async loadBoards() {
       if (this.setupRequired) return;

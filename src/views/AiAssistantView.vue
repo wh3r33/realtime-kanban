@@ -111,7 +111,7 @@ async function saveGeneratedItems() {
     return;
   }
   if (result.error) {
-    pageError.value = `Ошибка сохранения: ${result.error.message || result.error}`;
+    pageError.value = result.error.code === "MIGRATION_REQUIRED" ? result.error.message : `Ошибка сохранения: ${result.error.message || result.error}`;
     return;
   }
   pageMessage.value = result.items.length ? "AI subtasks saved to card" : "Подзадачи уже есть в карточке";

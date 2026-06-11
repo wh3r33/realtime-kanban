@@ -1,5 +1,6 @@
 <script setup>
 import { computed, reactive, ref, watch } from "vue";
+import UserAvatar from "./UserAvatar.vue";
 import { useAuthStore } from "../stores/auth";
 import { useCardsStore } from "../stores/cards";
 import { useMembersStore } from "../stores/members";
@@ -76,7 +77,7 @@ async function addComment() {
   if (!task.value) return;
   const result = await cardsStore.addComment(task.value.id, commentDraft.value);
   if (result.error === "viewer") uiStore.showToast("Роль viewer не может комментировать");
-  else if (result.error) uiStore.showToast(result.error.message || "Ошибка комментария");
+  else if (result.error) uiStore.showToast(result.error.code === "MIGRATION_REQUIRED" ? result.error.message : result.error.message || "Ошибка комментария");
   else if (!result.error) {
     commentDraft.value = "";
     uiStore.showToast("Комментарий добавлен");
@@ -91,7 +92,7 @@ function startEditComment(comment) {
 async function saveComment(commentId) {
   const result = await cardsStore.updateComment(commentId, editingCommentBody.value);
   if (result.error === "viewer") uiStore.showToast("Роль viewer не может редактировать комментарии");
-  else if (result.error) uiStore.showToast(result.error.message || "Ошибка комментария");
+  else if (result.error) uiStore.showToast(result.error.code === "MIGRATION_REQUIRED" ? result.error.message : result.error.message || "Ошибка комментария");
   else {
     editingCommentId.value = null;
     editingCommentBody.value = "";
@@ -102,7 +103,7 @@ async function saveComment(commentId) {
 async function deleteComment(commentId) {
   const result = await cardsStore.deleteComment(commentId);
   if (result.error === "viewer") uiStore.showToast("Роль viewer не может удалять комментарии");
-  else if (result.error) uiStore.showToast(result.error.message || "Ошибка комментария");
+  else if (result.error) uiStore.showToast(result.error.code === "MIGRATION_REQUIRED" ? result.error.message : result.error.message || "Ошибка комментария");
   else uiStore.showToast("Comment deleted");
 }
 
@@ -135,7 +136,7 @@ function acceptLatest() {
 async function toggleChecklistItem(item) {
   const result = await cardsStore.toggleChecklistItem(item.id, !item.isDone);
   if (result.error === "viewer") uiStore.showToast("Роль viewer не может менять чеклист");
-  else if (result.error) uiStore.showToast(`Ошибка сохранения чеклиста: ${result.error.message || result.error}`);
+  else if (result.error) uiStore.showToast(result.error.code === "MIGRATION_REQUIRED" ? result.error.message : `Ошибка сохранения чеклиста: ${result.error.message || result.error}`);
 }
 </script>
 
@@ -239,9 +240,12 @@ async function toggleChecklistItem(item) {
         <p class="security-note">Комментарии сохраняются в Supabase и обновляются через realtime.</p>
 
         <div v-for="comment in comments" :key="comment.id" class="comment">
-          <span class="tiny-avatar" :style="{ '--ring': membersStore.memberById(comment.authorId).color }">
-            {{ membersStore.memberById(comment.authorId).initials }}
-          </span>
+          <UserAvatar
+            class="tiny-avatar user-avatar"
+            :src="membersStore.memberById(comment.authorId).avatarUrl || ''"
+            :name="membersStore.memberById(comment.authorId).name"
+            :initials="membersStore.memberById(comment.authorId).initials"
+          />
           <div>
             <strong>{{ membersStore.memberById(comment.authorId).name }}</strong>
             <template v-if="editingCommentId === comment.id">

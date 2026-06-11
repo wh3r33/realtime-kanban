@@ -8,6 +8,7 @@ import {
   supabase,
   warnSupabaseError
 } from "../services/supabaseClient";
+import { updateCurrentProfile } from "../services/profileRepository";
 
 function profileName(user, profile) {
   return profile?.name || user?.user_metadata?.name || user?.email || "Supabase user";
@@ -87,6 +88,7 @@ export const useAuthStore = defineStore("auth", {
       this.currentUserName = "";
       this.currentRole = "viewer";
       this.profile = null;
+      this.profileErrorMessage = "";
       this.loading = false;
       this.initialized = true;
     },
@@ -97,6 +99,7 @@ export const useAuthStore = defineStore("auth", {
       this.currentUserName = profileName(user, profile);
       this.profile = profile;
       this.session = { status: "authenticated", workspaceId: "supabase" };
+      this.profileErrorMessage = "";
       if (profileError) this.profileErrorMessage = profileError.message;
       this.initialized = true;
     },
@@ -130,10 +133,33 @@ export const useAuthStore = defineStore("auth", {
       if (error) return { ok: false, message: error.message };
       return { ok: true, message: "Invitation accepted.", boardId: data?.boardId };
     },
+    async updateProfile(patch = {}) {
+      if (!isSupabaseConfigured || !supabase) return { ok: false, message: this.errorMessage || missingSupabaseEnvMessage };
+      const { data, error } = await updateCurrentProfile(patch);
+      warnSupabaseError("profile save failed", error);
+      if (error) {
+        return { ok: false, message: error.message, error };
+      }
+      this.profile = data;
+      this.currentUserName = profileName({ email: data?.email }, data);
+      this.profileErrorMessage = "";
+      return { ok: true, message: "Profile saved.", profile: data };
+    },
     async signOut() {
       if (supabase) await supabase.auth.signOut();
+      const [{ useBoardsStore }, { useCardsStore }, { useMembersStore }, { useUiStore }] = await Promise.all([
+        import("./boards"),
+        import("./cards"),
+        import("./members"),
+        import("./ui")
+      ]);
+      useBoardsStore().resetWorkspace();
+      useCardsStore().resetWorkspace();
+      useMembersStore().resetWorkspace();
+      useUiStore().resetWorkspace();
       this.profileErrorMessage = "";
       this.errorMessage = "";
+      initializePromise = null;
       this.applyAnonymousSession();
     }
   }

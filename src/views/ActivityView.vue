@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
+import UserAvatar from "../components/UserAvatar.vue";
 import { useBoardsStore } from "../stores/boards";
 import { useMembersStore } from "../stores/members";
 import { useUiStore } from "../stores/ui";
@@ -73,7 +74,7 @@ onMounted(async () => {
 
   <section class="timeline panel" data-component="ActivityFeed">
     <article v-for="event in filteredTimeline" :key="event.id" :data-type="event.category">
-      <span class="tiny-avatar" :style="{ '--ring': event.actor.color }">{{ event.actor.initials }}</span>
+      <UserAvatar class="tiny-avatar user-avatar" :src="event.actor.avatarUrl || ''" :name="event.actor.name" :initials="event.actor.initials" />
       <div>
         <strong>{{ event.title }}</strong>
         <p>{{ event.body }}</p>
