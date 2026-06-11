@@ -1,12 +1,16 @@
 <script setup>
 import { computed } from "vue";
-import { badgeClass } from "../data/mockData";
+import { badgeClass } from "../utils/badges";
 import { useMembersStore } from "../stores/members";
 
 const props = defineProps({
   task: {
     type: Object,
     required: true
+  },
+  canMutate: {
+    type: Boolean,
+    default: true
   }
 });
 
@@ -15,7 +19,7 @@ const membersStore = useMembersStore();
 const assignee = computed(() => membersStore.memberById(props.task.assigneeId));
 const editor = computed(() => membersStore.editorForCard(props.task.id));
 const lock = computed(() => membersStore.lockForCard(props.task.id));
-const labels = computed(() => Array.from(new Set([...(props.task.labels || []), props.task.status.toUpperCase()])));
+const labels = computed(() => Array.from(new Set([...(props.task.labels || []), props.task.status?.toUpperCase()].filter(Boolean))));
 const stateClass = computed(() => ({
   "conflict-state": props.task.status === "conflict",
   "locked-state": props.task.status === "locked"
@@ -26,14 +30,14 @@ const stateClass = computed(() => ({
   <article
     class="task-card"
     :class="stateClass"
-    draggable="true"
+    :draggable="canMutate"
     data-component="TaskCard"
     tabindex="0"
     :aria-label="`${task.title}, ${task.column} column`"
     @click="emit('open', task.id)"
     @keydown.enter.prevent="emit('open', task.id)"
     @keydown.space.prevent="emit('open', task.id)"
-    @dragstart="emit('drag-start', task.id)"
+    @dragstart="canMutate && emit('drag-start', task.id)"
   >
     <div class="card-badges">
       <span v-for="label in labels" :key="label" class="status-badge" :class="badgeClass(label)">{{ label }}</span>
@@ -57,8 +61,8 @@ const stateClass = computed(() => ({
       <span class="status-badge" :class="badgeClass(task.status)">{{ task.status.toUpperCase() }}</span>
     </div>
     <div class="card-move-actions" aria-label="Keyboard card movement">
-      <button type="button" class="mini-move-button" aria-label="Move card left" @click.stop="emit('move-left')">←</button>
-      <button type="button" class="mini-move-button" aria-label="Move card right" @click.stop="emit('move-right')">→</button>
+      <button type="button" class="mini-move-button" aria-label="Move card left" :disabled="!canMutate" @click.stop="emit('move-left')">←</button>
+      <button type="button" class="mini-move-button" aria-label="Move card right" :disabled="!canMutate" @click.stop="emit('move-right')">→</button>
     </div>
   </article>
 </template>

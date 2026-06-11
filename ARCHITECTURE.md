@@ -1,6 +1,6 @@
 # realtime-kanban Architecture
 
-The active application is a Vite-powered Vue 3 app. The `prototype/` directory is retained as a reference for copy, layout, and feature parity, but product behavior now runs through Vue Router, Pinia, Vue components, and service adapters under `src/`.
+The active application is a Vite-powered Vue 3 app. Prototype/mock files remain as reference material, but the runtime source of truth is Vue Router, Pinia, Vue components, and Supabase service adapters under `src/`.
 
 ## Runtime Composition
 
@@ -22,38 +22,6 @@ AppShell.vue
   ToastStack
 ```
 
-## Component Hierarchy
-
-```text
-App
-  WelcomeView
-  AppShell
-    TopBar
-      board-scoped navigation
-      undo/redo
-      theme toggle
-      notification link
-    RouterView
-      BoardsView
-      BoardView
-        BoardColumn
-          TaskCard
-        empty column state
-        movement aria-live region
-      ActivityView
-      MembersView
-      SettingsView
-      ProfileView
-      NotificationsView
-      PlaceholderView
-      SystemStateView
-    ActivityRail
-    TaskDrawer
-    ToastStack
-```
-
-`BoardColumn` is currently an inline boundary inside `BoardView.vue`, matching the existing architecture without introducing a thin duplicate component.
-
 ## Routing
 
 Canonical routes are board-scoped:
@@ -64,79 +32,72 @@ Canonical routes are board-scoped:
 /boards/:boardId/activity
 /boards/:boardId/members
 /boards/:boardId/settings
-/profile
-/bonus/notifications
-/bonus/analytics
-/bonus/search
-/bonus/offline
-/bonus/ai-assistant
-/auth/login
-/auth/register
-/auth/forgot-password
-/auth/invitations/:token
-/403
-/404
-/loading
 ```
 
-`src/router/index.js` also keeps compatibility redirects from the earlier flat Vue routes (`/board`, `/activity`, `/members`, `/settings`). Route guards validate mock authentication state and known board IDs.
+Legacy flat routes redirect to `/boards` so an empty database does not invent `board-main`.
 
 ## State Management
 
-Pinia stores own all active app state:
+- `auth`: Supabase auth user/profile, current board role, setup-required state.
+- `boards`: real boards, selected board ID, real columns, board settings flags.
+- `cards`: real cards, selected card, card CRUD, move persistence, undo/redo labels, realtime subscription handle.
+- `members`: real board members and roles. Presence, editing users, and locks are empty until implemented.
+- `ui`: sync state, real activity logs, empty notifications, toasts, theme, loading/error flags.
 
-- `auth`: mock session, current workspace, invitation state.
-- `boards`: boards, selected board ID, columns, board settings.
-- `cards`: cards, comments, selected card, undo/redo movement history, movement persistence errors.
-- `members`: member records, editing presence, locks.
-- `ui`: sync state, activity events, notifications, toasts, loading/error flags, theme.
+Stores initialize with empty arrays. They do not import `src/data/mockData.js`.
 
-The stores clone mock data at initialization so runtime mutations do not mutate imported module data.
+## Service Layer
 
-## Drag And Drop
+- `src/services/supabaseClient.js`
+  - Creates the Supabase client.
+  - Exposes `getCurrentUser()` and `getCurrentProfile()`.
+- `src/services/boardRepository.js`
+  - `listBoardsForCurrentUser()`
+  - `createBoard(title, description)`
+  - `getBoard(boardId)`
+  - `getBoardColumns(boardId)`
+  - `getBoardCards(boardId)`
+  - `createDefaultColumns(boardId)`
+- `src/services/cardRepository.js`
+  - `createCard(boardId, columnId, payload)`
+  - `updateCard(cardId, payload)`
+  - `deleteCard(cardId)`
+  - `moveCard(cardId, columnId, position)`
+- `src/services/memberRepository.js`
+  - `listBoardMembers(boardId)`
+  - `getCurrentUserBoardRole(boardId)`
+- `src/services/activityRepository.js`
+  - `listBoardActivity(boardId)`
+  - `createActivityLog(boardId, action, entityType, entityId, oldData, newData)`
 
-`BoardView.vue` handles native drag/drop and keyboard movement controls. Both paths call `cardsStore.moveTask(cardId, targetColumn, toIndex)`.
+The repositories use the provided schema columns: `boards.owner_id`, `columns.board_id`, `cards.board_id`, `cards.column_id`, `cards.assigned_to`, `cards.created_by`, `board_members.role`, `activity_logs.old_data`, and `activity_logs.new_data`.
 
-The cards store updates:
+## Board Behavior
 
-- `column`
-- per-column `position`
-- `updatedAt`
-- history entries
-- undo/redo stacks
+`BoardsView.vue` loads boards from `listBoardsForCurrentUser()`. If none exist, it renders an empty state and a create-board form. Creating a board inserts:
 
-Movement announcements are written to an `aria-live` region, and card movement controls provide a keyboard alternative to pointer drag and drop.
+- `boards`
+- owner row in `board_members`
+- default `columns`: Todo, In Progress, Review, Done
+- `activity_logs` row for `board_created`
 
-## Persistence Boundary
+`BoardView.vue` loads board, columns, cards, members, and activity by route id. If a board has no columns, it shows an action to create default columns. Empty columns show empty states instead of cards.
 
-`src/services/cardRepository.js` is the persistence adapter for card movement.
+## Realtime
 
-Current behavior:
+`src/services/realtimeService.js` subscribes to board-scoped `postgres_changes` for:
 
-- If Supabase env vars are missing, movement events are written to `localStorage`.
-- If Supabase env vars are present, the adapter writes to a future `card_movements` table through `@supabase/supabase-js`.
+- `cards`
+- `columns`
+- `activity_logs`
+- `board_members`
 
-This keeps Vue state independent from the eventual backend shape and gives Supabase integration a single replacement point.
+When Supabase is not configured, the app reports setup required. BroadcastChannel remains available only as a local multi-tab fallback after real board state is loaded. The UI does not show “LIVE” unless the store reports a Supabase subscription.
 
-## Future Supabase Integration
+## Partial Features
 
-Expected tables/channels:
-
-- `boards`, `columns`, `cards`, `comments`
-- `activity_events`
-- `notifications`
-- `invitations`
-- `card_movements`
-- board-scoped realtime channels using `boardId`
-- presence channels for online/editing/lock state
-
-Expected RLS policies:
-
-- Board membership required for reads.
-- Owner/editor permissions required for mutations.
-- Viewer mutations blocked at the database layer.
-- Activity, notification, and invitation rows scoped to accessible boards.
-
-## Prototype Reference
-
-The `prototype/` directory remains useful for parity checks and future migration of bonus/auth views. It must not become a second runtime source of truth.
+- Presence is not implemented. Online/editing indicators are hidden or labelled “Presence not connected.”
+- RLS policies are not included. Settings labels say RLS policy is required.
+- Production auth depends on Supabase project configuration and `public.handle_new_user()`.
+- Comments are not part of the provided schema, so no comments are displayed.
+- Notifications and invitations are not connected to a schema table.

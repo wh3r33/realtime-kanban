@@ -1,15 +1,15 @@
 # realtime-kanban
 
-Vue 3 collaborative kanban prototype with board-scoped routing, Pinia state, cross-column card movement, notifications, responsive layouts, dark mode, and a thin persistence adapter ready for Supabase.
+Vue 3 collaborative kanban app with Vue Router, Pinia, and Supabase-backed boards, columns, cards, board members, and activity logs.
 
-The legacy static prototype remains in `prototype/` as migration reference material. The active app is the Vite/Vue runtime in `src/`.
+The legacy mock dataset remains in `src/data/mockData.js` as reference only. Active runtime code must not import it.
 
 ## Stack
 
 - Vue 3 and Vite
 - Vue Router 4
 - Pinia
-- Supabase JS client, currently optional and gated by environment variables
+- Supabase JS client
 - CSS tokens and global styles in `src/assets/styles/`
 
 ## Run Locally
@@ -23,60 +23,79 @@ Build validation:
 
 ```bash
 npm run build
+npm run check
 ```
 
-`npm run check` currently aliases the production build. No lint script exists yet.
-
 ## Environment
-
-Copy `.env.example` when Supabase integration begins:
 
 ```bash
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 ```
 
-When these values are absent, card movement persistence uses local mock storage. When they are present, `src/services/cardRepository.js` is ready to write movement rows through the Supabase client.
+When these values are absent, the app shows a setup-required state. It does not fall back to demo boards, users, cards, presence, notifications, or activity.
+
+## Supabase Status
+
+Completed:
+
+- Supabase client setup with `getCurrentUser()` and `getCurrentProfile()`.
+- Repository layer for `boards`, `columns`, `cards`, `board_members`, and `activity_logs`.
+- `/boards` loads real boards for the current user.
+- Board creation inserts `boards`, owner `board_members`, default columns, and a board-created activity log.
+- `/boards/:boardId` loads real board, columns, cards, members, and activity.
+- Card create, update, delete, and move write to `public.cards` and create `activity_logs`.
+- Members page shows only real `board_members` joined with `public.users`.
+- Empty database states are honest.
+
+Partial:
+
+- Realtime uses basic board-scoped Supabase `postgres_changes` subscriptions when configured. BroadcastChannel remains only as local multi-tab fallback.
+- Presence is not implemented; online/editing sections are hidden or marked “Presence not connected.”
+- RLS policies are not provided in this repo; UI labels do not claim RLS is active.
+- Production auth depends on Supabase auth configuration and `public.handle_new_user()`.
+- Comments, invitations, notifications, analytics, search, offline, and AI assistant are not connected to the provided schema.
 
 ## Routes
 
 | Route | Status | View |
 |---|---:|---|
 | `/` | completed | welcome |
-| `/boards` | completed | board dashboard |
-| `/boards/:boardId` | completed | kanban board |
-| `/boards/:boardId/activity` | completed | activity timeline |
-| `/boards/:boardId/members` | completed | members and roles |
-| `/boards/:boardId/settings` | completed | board settings |
-| `/profile` | completed | profile preferences |
-| `/bonus/notifications` | completed | notification list |
-| `/bonus/analytics` | partial | placeholder |
-| `/bonus/search` | partial | placeholder |
-| `/bonus/offline` | partial | placeholder |
-| `/bonus/ai-assistant` | partial | placeholder |
-| `/auth/login` | partial | placeholder |
-| `/auth/register` | partial | placeholder |
-| `/auth/forgot-password` | partial | placeholder |
-| `/auth/invitations/:token` | partial | placeholder |
-| `/403`, `/404`, `/loading` | completed | system states |
+| `/boards` | completed | Supabase board dashboard |
+| `/boards/:boardId` | completed | Supabase kanban board |
+| `/boards/:boardId/activity` | completed | activity log timeline |
+| `/boards/:boardId/members` | completed | real board members and roles |
+| `/boards/:boardId/settings` | partial | board settings/status |
+| `/profile` | partial | Supabase profile display and local preferences |
+| `/bonus/notifications` | partial | empty until notifications are connected |
+| `/auth/login` | partial | Supabase auth form |
+| `/auth/register` | partial | Supabase registration form |
+| `/auth/forgot-password` | partial | Supabase reset request |
 
-Legacy aliases such as `/board`, `/activity`, `/members`, and `/settings` redirect to the default board-scoped route.
+Legacy aliases such as `/board`, `/activity`, `/members`, and `/settings` redirect to `/boards`.
 
-## Core Behavior
+## Manual Validation
 
-- Boards, cards, members, auth session, notifications, activity, and UI preferences live in Pinia.
-- Card drag and drop moves cards across columns and stores per-column `position`.
-- Undo and redo share the same card movement action path.
-- Keyboard card movement uses left/right controls on each card and announces movement through an `aria-live` region.
-- Notifications can be marked read from the notifications route.
-- Dark mode is stored in local storage and applied through `data-theme`.
+1. Start with empty Supabase tables.
+2. Open `/boards`.
+3. Confirm no fake boards are visible.
+4. Create a new board.
+5. Confirm the board appears from Supabase.
+6. Open the board.
+7. Confirm default columns exist.
+8. Add a card.
+9. Refresh the page.
+10. Confirm the card persists from Supabase.
+11. Move the card.
+12. Refresh the page.
+13. Confirm `column_id` and `position` persist.
+14. Open members.
+15. Confirm only real members are shown.
+16. Open activity.
+17. Confirm only real activity logs are shown.
+18. Confirm no fake online/editing users appear.
 
 ## Documentation
 
 - [Architecture](ARCHITECTURE.md)
 - [Migration checklist](MIGRATION_CHECKLIST.md)
-- [Branch strategy](BRANCH_STRATEGY.md)
-- [Architecture diagram source](docs/architecture-diagram.mmd)
-- [Screenshots checklist](docs/screenshots-checklist.md)
-- [Demo video checklist](docs/demo-video-checklist.md)
-- [Project defense checklist](docs/project-defense-checklist.md)

@@ -15,11 +15,11 @@ const selectedBoard = computed(() => boardsStore.selectedBoard);
 function saveSettings() {
   boardsStore.boardSettings.language = language.value;
   boardsStore.boardSettings.conflictStrategy = conflictStrategy.value;
-  uiStore.showToast("Board settings saved to mock state");
+  uiStore.showToast("Board settings are local until a settings table is added");
 }
 
 function copyShareLink() {
-  uiStore.showToast("Share link copied");
+  uiStore.showToast("Share links are not connected yet");
 }
 </script>
 
@@ -28,13 +28,13 @@ function copyShareLink() {
     <div class="header-line">
       <p class="kicker">Realtime System Control Center</p>
       <div class="board-meta">
-        <span class="status-badge live">LIVE</span>
-        <span class="status-badge rls">RLS ACTIVE</span>
+        <span class="status-badge" :class="uiStore.syncState === 'synced' ? 'synced' : 'viewer'">{{ uiStore.syncState.toUpperCase() }}</span>
+        <span class="status-badge viewer">RLS POLICY REQUIRED</span>
         <span class="status-badge versioned">VERSIONED</span>
       </div>
     </div>
-    <h1>Operational controls for {{ selectedBoard.name }}.</h1>
-    <p>Board identity, permissions, presence, and conflict strategy are grouped by how the realtime system behaves.</p>
+    <h1>Operational controls for {{ selectedBoard?.name || "this board" }}.</h1>
+    <p>Only data backed by the provided Supabase schema is marked connected.</p>
   </section>
 
   <section class="settings-control-grid" aria-label="Board system controls">
@@ -46,14 +46,14 @@ function copyShareLink() {
         </div>
         <span class="status-badge synced">SYNCED</span>
       </div>
-      <label>Board name<input class="input" :value="selectedBoard.name" readonly /></label>
+      <label>Board name<input class="input" :value="selectedBoard?.name" readonly /></label>
       <div class="setting-line">
         <span>Visibility</span>
         <strong>Private to members</strong>
       </div>
       <div class="setting-line share-line">
         <span>Board URL</span>
-        <strong>realtime-kanban.local/board?boardId={{ selectedBoard.id }}</strong>
+        <strong>/boards/{{ selectedBoard?.id }}</strong>
       </div>
       <button class="button secondary" type="button" @click="copyShareLink">Copy share link</button>
     </article>
@@ -64,25 +64,15 @@ function copyShareLink() {
           <p class="kicker">Invitations</p>
           <h2>Pending access</h2>
         </div>
-        <span class="status-badge synced">LOCAL MOCK</span>
+        <span class="status-badge viewer">NOT CONNECTED</span>
       </div>
       <div class="invite-list">
-        <div class="invite-row">
-          <div>
-            <strong>reviewer@example.com</strong>
-            <span>Viewer · expires in 2 days</span>
-          </div>
-          <span class="status-badge viewer">PENDING</span>
-        </div>
-        <div class="invite-row">
-          <div>
-            <strong>ops.lead@example.com</strong>
-            <span>Editor · sent 4h ago</span>
-          </div>
-          <span class="status-badge viewer">PENDING</span>
+        <div class="empty-state compact">
+          <strong>No pending invitations</strong>
+          <span>Invitations are not in the provided schema.</span>
         </div>
       </div>
-      <button class="button primary" type="button" @click="uiStore.showToast('Create invite queued')">Create invite</button>
+      <button class="button primary" type="button" @click="uiStore.showToast('Invitations are not connected yet')">Create invite</button>
     </article>
 
     <article class="settings-section-card">
@@ -91,11 +81,11 @@ function copyShareLink() {
           <p class="kicker">Permissions</p>
           <h2>Role enforcement</h2>
         </div>
-        <span class="status-badge rls">RLS ACTIVE</span>
+        <span class="status-badge viewer">RLS POLICY REQUIRED</span>
       </div>
       <div class="system-status-card">
         <span>Owner controls</span>
-        <strong>NN User can manage board, members, and destructive actions.</strong>
+        <strong>Owner/editor/viewer roles are loaded from board_members.role.</strong>
       </div>
       <div class="setting-line">
         <span>Default invite role</span>
@@ -131,12 +121,12 @@ function copyShareLink() {
           <p class="kicker">Realtime</p>
           <h2>Live sync channel</h2>
         </div>
-        <span class="status-badge live">LIVE</span>
+        <span class="status-badge" :class="uiStore.syncState === 'synced' ? 'synced' : 'viewer'">{{ uiStore.syncState.toUpperCase() }}</span>
       </div>
       <div class="system-status-grid">
         <div class="system-status-card">
           <span>Provider</span>
-          <strong>Supabase Realtime / WebSocket-ready mock</strong>
+          <strong>{{ uiStore.syncState === "synced" ? "Supabase Realtime" : "Local BroadcastChannel fallback" }}</strong>
         </div>
         <div class="system-status-card">
           <span>Sync status</span>
@@ -144,7 +134,7 @@ function copyShareLink() {
         </div>
         <div class="system-status-card">
           <span>Presence</span>
-          <strong>Enabled for {{ membersStore.members.length }} collaborators</strong>
+          <strong>Presence not connected</strong>
         </div>
       </div>
       <label>
@@ -169,9 +159,9 @@ function copyShareLink() {
       <div class="danger-action-row">
         <div>
           <strong>Delete board</strong>
-          <span>Removes mock cards, activity history, and invitations.</span>
+          <span>Destructive board cleanup is not implemented.</span>
         </div>
-        <button class="button danger" type="button" @click="uiStore.showToast('Delete board blocked in mock mode')">Delete</button>
+        <button class="button danger" type="button" @click="uiStore.showToast('Delete board is not implemented')">Delete</button>
       </div>
       <div class="danger-action-row">
         <div>

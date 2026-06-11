@@ -1,11 +1,11 @@
 <script setup>
 import { computed, ref } from "vue";
-import { useMembersStore } from "../stores/members";
+import { useAuthStore } from "../stores/auth";
 import { useUiStore } from "../stores/ui";
 
-const membersStore = useMembersStore();
+const authStore = useAuthStore();
 const uiStore = useUiStore();
-const profile = computed(() => membersStore.memberById("u-nn"));
+const initials = computed(() => (authStore.currentUserName || "US").slice(0, 2).toUpperCase());
 const preferences = ref({
   theme: uiStore.theme,
   glass: true,
@@ -18,11 +18,11 @@ const preferences = ref({
 
 <template>
   <section class="profile-hero">
-    <span class="avatar large" :style="{ '--ring': profile.color }">{{ profile.initials }}</span>
+    <span class="avatar large">{{ initials }}</span>
     <div>
       <p class="kicker">Profile</p>
-      <h1>{{ profile.name }}</h1>
-      <p>{{ profile.email }}</p>
+      <h1>{{ authStore.currentUserName || "No Supabase user" }}</h1>
+      <p>{{ authStore.profile?.email || "Profile loads from public.users" }}</p>
     </div>
   </section>
 
@@ -50,25 +50,24 @@ const preferences = ref({
     <div class="panel">
       <div class="panel-header">
         <h2>Active sessions</h2>
-        <span class="status-badge online">CURRENT</span>
+        <span class="status-badge synced">SUPABASE</span>
       </div>
       <div class="compact-list">
-        <p><strong>Desktop browser</strong> Current session · Asia/Almaty</p>
-        <p><strong>Mobile browser</strong> Last active 18m ago</p>
+        <p><strong>Current browser</strong> Supabase auth session</p>
       </div>
     </div>
 
     <div class="panel stats-row">
       <div>
-        <strong>42</strong>
+        <strong>0</strong>
         <span>cards moved</span>
       </div>
       <div>
-        <strong>9</strong>
+        <strong>0</strong>
         <span>conflicts resolved</span>
       </div>
       <div>
-        <strong>6h</strong>
+        <strong>0h</strong>
         <span>focus time</span>
       </div>
       <button class="button secondary" type="button" @click="uiStore.showToast('Profile preferences saved')">Save profile</button>

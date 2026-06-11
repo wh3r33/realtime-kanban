@@ -1,30 +1,19 @@
 <script setup>
-import { computed } from "vue";
-import { useCardsStore } from "../stores/cards";
 import { useMembersStore } from "../stores/members";
 import { useUiStore } from "../stores/ui";
 
-const cardsStore = useCardsStore();
 const membersStore = useMembersStore();
 const uiStore = useUiStore();
-
-const editingNow = computed(() =>
-  membersStore.editingUsers.slice(0, 4).map((presence) => ({
-    ...presence,
-    member: membersStore.memberById(presence.userId),
-    card: cardsStore.cardById(presence.cardId)
-  }))
-);
 </script>
 
 <template>
   <aside class="activity-rail glass" data-component="ActivityRail">
     <div class="rail-section">
-      <p class="rail-label">Editing Now</p>
+      <p class="rail-label">Presence</p>
       <div class="editing-now">
-        <div v-for="presence in editingNow" :key="presence.userId" class="editing-item" data-component="EditingPresenceItem">
-          <strong>{{ presence.member.name }}</strong>
-          <span>{{ presence.mode === "viewing" ? "Viewing" : "Editing" }} {{ presence.card?.title || "board" }} · {{ presence.duration }}</span>
+        <div class="editing-item" data-component="EditingPresenceItem">
+          <strong>Presence not connected</strong>
+          <span v-if="!membersStore.presenceConnected">Online and editing indicators are hidden until Supabase presence is implemented.</span>
         </div>
       </div>
     </div>
@@ -41,6 +30,10 @@ const editingNow = computed(() =>
           <strong>{{ event.title }}</strong>
           <span>{{ event.body }}</span>
           <time>{{ event.createdAt }}</time>
+        </div>
+        <div v-if="!uiStore.activityEvents.length" class="activity-item">
+          <strong>No activity yet</strong>
+          <span>Only Supabase activity_logs rows appear here.</span>
         </div>
       </div>
     </div>

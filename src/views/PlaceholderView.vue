@@ -24,6 +24,6 @@ defineProps({
   </section>
   <section class="empty-state informative">
     <strong>{{ title }} route is configured</strong>
-    <span>This view is ready for the next migration pass. The board page is migrated first with functional mock data.</span>
+    <span>This view is ready for the next migration pass. Active board data now loads from Supabase.</span>
   </section>
 </template>

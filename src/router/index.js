@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from "vue-router";
 import AppShell from "../layouts/AppShell.vue";
 import { useAuthStore } from "../stores/auth";
-import { useBoardsStore } from "../stores/boards";
 import ActivityView from "../views/ActivityView.vue";
+import AuthView from "../views/AuthView.vue";
 import BoardView from "../views/BoardView.vue";
 import BoardsView from "../views/BoardsView.vue";
 import MembersView from "../views/MembersView.vue";
@@ -20,10 +20,10 @@ const placeholder = (title, eyebrow = "realtime-kanban") => ({
 
 const routes = [
   { path: "/", component: WelcomeView },
-  { path: "/auth/login", alias: "/login", ...placeholder("Sign in", "Authentication") },
-  { path: "/auth/register", alias: "/register", ...placeholder("Create account", "Authentication") },
-  { path: "/auth/forgot-password", alias: "/forgot-password", ...placeholder("Reset password", "Authentication") },
-  { path: "/auth/invitations/:token?", alias: "/accept-invitation", ...placeholder("Accept invitation", "Authentication") },
+  { path: "/auth/login", alias: "/login", component: AuthView },
+  { path: "/auth/register", alias: "/register", component: AuthView },
+  { path: "/auth/forgot-password", alias: "/forgot-password", component: AuthView },
+  { path: "/auth/invitations/:token?", alias: "/accept-invitation", component: AuthView },
   {
     path: "/",
     component: AppShell,
@@ -34,17 +34,17 @@ const routes = [
       { path: "boards/:boardId/activity", component: ActivityView, meta: { requiresBoard: true } },
       { path: "boards/:boardId/members", component: MembersView, meta: { requiresBoard: true } },
       { path: "boards/:boardId/settings", component: SettingsView, meta: { requiresBoard: true } },
-      { path: "board", redirect: "/boards/board-main" },
-      { path: "activity", redirect: "/boards/board-main/activity" },
-      { path: "members", redirect: "/boards/board-main/members" },
-      { path: "settings", redirect: "/boards/board-main/settings" },
+      { path: "board", redirect: "/boards" },
+      { path: "activity", redirect: "/boards" },
+      { path: "members", redirect: "/boards" },
+      { path: "settings", redirect: "/boards" },
       { path: "profile", component: ProfileView },
       { path: "bonus/analytics", alias: "analytics", ...placeholder("Analytics", "Bonus") },
       { path: "bonus/notifications", alias: "notifications", component: NotificationsView },
       { path: "bonus/search", alias: "search", ...placeholder("Search", "Bonus") },
       { path: "bonus/offline", alias: "offline", ...placeholder("Offline queue", "Bonus") },
       { path: "bonus/ai-assistant", alias: "ai-assistant", ...placeholder("AI assistant", "Bonus") },
-      { path: "403", component: SystemStateView, props: { code: "403", title: "Access denied", message: "Your current mock role cannot open this workspace area." } },
+      { path: "403", component: SystemStateView, props: { code: "403", title: "Access denied", message: "Your current board role cannot open this workspace area." } },
       { path: "404", component: SystemStateView, props: { code: "404", title: "Page not found", message: "The route does not exist in the Vue migration." } },
       { path: "loading", component: SystemStateView, props: { code: "SYNC", title: "Loading workspace", message: "Hydrating board state and realtime subscriptions." } }
     ]
@@ -59,9 +59,7 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const authStore = useAuthStore();
-  const boardsStore = useBoardsStore();
-  if (to.meta.requiresAuth && authStore.session.status !== "authenticated") return "/auth/login";
-  if (to.meta.requiresBoard && !boardsStore.boardById(to.params.boardId)) return "/404";
+  if (to.meta.requiresAuth && !["authenticated", "loading", "setup_required"].includes(authStore.session.status)) return "/auth/login";
   return true;
 });
 

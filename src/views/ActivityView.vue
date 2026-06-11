@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useBoardsStore } from "../stores/boards";
 import { useMembersStore } from "../stores/members";
 import { useUiStore } from "../stores/ui";
@@ -19,10 +19,12 @@ const filters = [
 
 const categoryByType = {
   card_moved: "cards",
-  card_edited: "cards",
+  card_updated: "cards",
+  card_created: "cards",
+  card_deleted: "cards",
   conflict_detected: "conflicts",
   invite_accepted: "members",
-  sync_restored: "system"
+  board_created: "system"
 };
 
 const timeline = computed(() => [
@@ -30,27 +32,23 @@ const timeline = computed(() => [
     ...event,
     category: categoryByType[event.type] || "system",
     actor: membersStore.memberById(event.actorId)
-  })),
-  {
-    id: "evt-system-replay",
-    title: "Sync restored",
-    body: "Realtime channel replayed 7 pending events after reconnect.",
-    createdAt: "31m",
-    category: "system",
-    actor: { initials: "RK", color: "#2855FF" }
-  }
+  }))
 ]);
 
 const filteredTimeline = computed(() =>
   activeFilter.value === "all" ? timeline.value : timeline.value.filter((event) => event.category === activeFilter.value)
 );
+
+onMounted(async () => {
+  await uiStore.loadActivity(boardsStore.selectedBoardId);
+});
 </script>
 
 <template>
   <section class="page-header">
     <p class="kicker">History of Changes</p>
-    <h1>{{ boardsStore.selectedBoard.name }} actions have a readable trail.</h1>
-    <p>Filter board movement, member events, conflicts, and system sync messages without losing the surrounding context.</p>
+    <h1>{{ boardsStore.selectedBoard?.name || "Board" }} activity</h1>
+    <p>Only rows from public.activity_logs are shown here.</p>
   </section>
 
   <div class="filter-bar" aria-label="Activity filters">
@@ -75,8 +73,8 @@ const filteredTimeline = computed(() =>
       </div>
     </article>
     <div v-if="!filteredTimeline.length" class="empty-state compact">
-      <strong>No events match this filter</strong>
-      <span>Try a different activity category.</span>
+      <strong>No activity</strong>
+      <span>No Supabase activity log rows match this filter.</span>
     </div>
   </section>
 </template>

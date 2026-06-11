@@ -10,11 +10,11 @@ const uiStore = useUiStore();
       <p class="kicker">Notifications</p>
       <div class="board-meta">
         <span class="status-badge live">{{ uiStore.unreadNotifications.length }} UNREAD</span>
-        <span class="status-badge synced">LOCAL MOCK</span>
+        <span class="status-badge viewer">NOT CONNECTED</span>
       </div>
     </div>
     <h1>Realtime events that need attention.</h1>
-    <p>Conflict, invite, and sync messages are stored in Pinia now and can later be backed by Supabase notification rows.</p>
+    <p>Notifications are empty until a real notification table or service is connected.</p>
   </section>
 
   <section class="notification-list">
@@ -39,7 +39,7 @@ const uiStore = useUiStore();
     </article>
     <div v-if="!uiStore.notifications.length" class="empty-state informative">
       <strong>No notifications</strong>
-      <span>Conflict, invite, and sync events will appear here.</span>
+      <span>No fake notifications are shown.</span>
     </div>
   </section>
 </template>

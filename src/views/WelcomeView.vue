@@ -24,7 +24,7 @@
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>
           </RouterLink>
-          <RouterLink class="button secondary" to="/boards/board-main">Open live board</RouterLink>
+          <RouterLink class="button secondary" to="/boards">Open boards</RouterLink>
           <RouterLink class="button secondary" to="/auth/login">Sign in</RouterLink>
         </div>
         <p>
@@ -35,14 +35,14 @@
 
     <div class="welcome-side-note reveal">
       <span>SYNC LEDGER</span>
-      <strong>04 active collaborators</strong>
-      <small>Realtime presence, edits, locks and conflicts simulated locally.</small>
+      <strong>Supabase-backed workspace</strong>
+      <small>Presence is hidden until connected to Supabase realtime presence.</small>
     </div>
 
     <div class="tech-bar" aria-label="Technical information">
-      <div><span>ONLINE USERS</span><strong>04</strong></div>
-      <div><span>ACTIVE BOARDS</span><strong>01</strong></div>
-      <div><span>SYNC STATUS</span><strong>STABLE</strong></div>
+      <div><span>ONLINE USERS</span><strong>--</strong></div>
+      <div><span>ACTIVE BOARDS</span><strong>DB</strong></div>
+      <div><span>SYNC STATUS</span><strong>CONFIG</strong></div>
       <div><span>VERSION</span><strong>0.9.6</strong></div>
     </div>
   </section>

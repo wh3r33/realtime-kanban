@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { activityEvents, notifications } from "../data/mockData";
+import { listBoardActivity } from "../services/activityRepository";
 
 const savedTheme = () => {
   if (typeof window === "undefined") return "light";
@@ -8,11 +8,11 @@ const savedTheme = () => {
 
 export const useUiStore = defineStore("ui", {
   state: () => ({
-    syncState: "synced",
-    syncText: "Synced · heartbeat just now",
-    lastChanged: "Last change just now",
-    activityEvents: JSON.parse(JSON.stringify(activityEvents)),
-    notifications: JSON.parse(JSON.stringify(notifications)),
+    syncState: "idle",
+    syncText: "Realtime not connected",
+    lastChanged: "No changes loaded",
+    activityEvents: [],
+    notifications: [],
     toasts: [],
     theme: savedTheme(),
     isLoading: false,
@@ -22,17 +22,17 @@ export const useUiStore = defineStore("ui", {
     unreadNotifications: (state) => state.notifications.filter((notification) => notification.unread)
   },
   actions: {
-    addActivity(type, title, body, actorId = "u-nn") {
-      this.activityEvents.unshift({
-        id: `evt-${Date.now()}`,
-        type,
-        actorId,
-        title,
-        body,
-        createdAt: "just now"
-      });
-      this.activityEvents = this.activityEvents.slice(0, 20);
-      this.lastChanged = "Last change just now";
+    async loadActivity(boardId) {
+      if (!boardId) {
+        this.activityEvents = [];
+        return;
+      }
+      const { data, error } = await listBoardActivity(boardId);
+      this.activityEvents = data || [];
+      this.errorMessage = error?.message || "";
+    },
+    addActivity() {
+      this.lastChanged = "Activity will update after Supabase writes complete";
     },
     showToast(message) {
       const toast = { id: `toast-${Date.now()}`, message };
@@ -43,7 +43,7 @@ export const useUiStore = defineStore("ui", {
     },
     setSyncState(state, detail) {
       this.syncState = state;
-      this.syncText = detail || `${state.charAt(0).toUpperCase()}${state.slice(1)} · just now`;
+      this.syncText = detail || `${state.charAt(0).toUpperCase()}${state.slice(1)}`;
     },
     setTheme(theme) {
       this.theme = theme;

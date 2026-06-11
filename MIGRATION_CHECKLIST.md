@@ -5,57 +5,45 @@
 - [x] Vue 3 app shell with Vite.
 - [x] Vue Router installed and configured.
 - [x] Canonical board-scoped routes under `/boards/:boardId`.
-- [x] Compatibility redirects for earlier flat Vue routes.
+- [x] Compatibility redirects point to `/boards` without inventing a default board.
 - [x] Pinia installed and active.
-- [x] Board, card, member, auth, and UI stores.
-- [x] Core component architecture: `AppShell`, `TopBar`, `BoardView`, `TaskCard`, `TaskDrawer`, `ActivityRail`, `ToastStack`.
-- [x] Boards dashboard migrated to Vue.
-- [x] Board state, selected card, activity feed, toasts, and settings flow through Vue state.
-- [x] Native drag/drop card movement.
-- [x] Cross-column movement.
-- [x] Per-column card positions persisted in Pinia state.
-- [x] Undo and redo for card movement.
-- [x] Persistence adapter prepared for Supabase card movement.
-- [x] Notifications route backed by Pinia.
-- [x] Loading, 403, and 404 system state views.
-- [x] Empty states for columns and filtered activity.
-- [x] Responsive CSS for desktop, tablet, and mobile.
-- [x] Dark mode via Pinia, local storage, and `data-theme`.
-- [x] Focus-visible styles and reduced-motion CSS.
-- [x] Keyboard movement controls for cards.
-- [x] `.env.example`.
-- [x] GitHub Actions build workflow.
-- [x] Branch strategy documentation.
-- [x] Architecture diagram source.
-- [x] Screenshots checklist.
-- [x] Demo video checklist.
-- [x] Project defense checklist.
+- [x] Supabase client setup with setup-required state when env vars are missing.
+- [x] `getCurrentUser()` and `getCurrentProfile()`.
+- [x] Repository layer for boards, cards, members, and activity.
+- [x] Boards dashboard loads real boards from Supabase.
+- [x] Empty `/boards` state when the database has no boards.
+- [x] Board creation inserts board, owner membership, default columns, and activity log.
+- [x] Board page loads real board, columns, and cards.
+- [x] Empty column states without fake cards.
+- [x] Card create, update, delete, and move write to Supabase.
+- [x] Card movement writes `column_id` and `position`.
+- [x] Members page shows only real `board_members` joined with `users`.
+- [x] Activity page and rail load from `activity_logs`.
+- [x] Active runtime no longer imports `src/data/mockData.js`.
+- [x] Misleading fake online/editing/status labels removed or replaced with honest partial/setup states.
+- [x] `npm run build`.
+- [x] `npm run check`.
 
 ## Partial
 
-- [ ] Auth views are route placeholders and still need full forms.
+- [ ] Realtime: basic Supabase `postgres_changes` subscriptions exist for cards, columns, activity logs, and board members. Remote changes currently trigger reloads rather than fine-grained patching.
+- [ ] Presence: not implemented. The UI says “Presence not connected” or hides online/editing details.
+- [ ] RLS: policies are not provided in this repo. UI no longer claims “RLS ACTIVE.”
+- [ ] Production auth: Supabase auth is wired, but final behavior depends on project settings and `public.handle_new_user()`.
+- [ ] Comments: not connected because comments are not in the provided schema.
+- [ ] Notifications and invitations: empty/unconnected.
 - [ ] Bonus analytics, search, offline, and AI assistant routes are placeholders.
-- [ ] Drag/drop supports keyboard left/right movement but not full roving tabindex pickup/drop behavior.
-- [ ] Error handling is present as system states and store flags, but no backend error mapping exists yet.
-- [ ] Environment variables are documented, but Supabase schema and deployed project are not connected.
 - [ ] Automated accessibility and responsive regression checks are not installed.
-
-## Missing
-
-- [ ] Component tests for board movement, drawer state, conflicts, notifications, and route guards.
-- [ ] Real authentication.
-- [ ] Supabase schema, migrations, realtime subscriptions, and RLS policies.
-- [ ] Production deployment configuration.
 
 ## Current Route Map
 
 | Route | View |
 |---|---|
 | `/` | `WelcomeView` |
-| `/auth/login` | `PlaceholderView` |
-| `/auth/register` | `PlaceholderView` |
-| `/auth/forgot-password` | `PlaceholderView` |
-| `/auth/invitations/:token` | `PlaceholderView` |
+| `/auth/login` | `AuthView` |
+| `/auth/register` | `AuthView` |
+| `/auth/forgot-password` | `AuthView` |
+| `/auth/invitations/:token` | `AuthView` |
 | `/boards` | `BoardsView` |
 | `/boards/:boardId` | `BoardView` |
 | `/boards/:boardId/activity` | `ActivityView` |
@@ -71,33 +59,23 @@
 | `/404` | `SystemStateView` |
 | `/loading` | `SystemStateView` |
 
-## Store Contracts
+## Manual Validation
 
-- `AuthStore`: current user, session, invitation.
-- `BoardStore`: boards, selected board ID, columns, board settings.
-- `CardsStore`: cards, comments, selected card, undo/redo history, movement persistence.
-- `MembersStore`: members, editing users, locks.
-- `UiStore`: sync state, activity events, notifications, toasts, theme, loading/error flags.
-
-## Supabase Tasks
-
-- Create schema for boards, columns, cards, comments, activity, notifications, invitations, and card movements.
-- Replace local movement log in `cardRepository` with verified table writes.
-- Subscribe to board-scoped card insert/update/delete/move events.
-- Subscribe to comment and activity inserts.
-- Publish presence join/leave and editing/viewing state.
-- Add optimistic rollback when server persistence fails.
-- Add RLS policies for board membership and role-based mutations.
-
-## Validation
-
-```bash
-npm install
-npm run build
-```
-
-Optional:
-
-```bash
-npm run check
-```
+1. Start with empty Supabase tables.
+2. Open `/boards`.
+3. Confirm no fake boards are visible.
+4. Create a new board.
+5. Confirm board appears from Supabase.
+6. Open board.
+7. Confirm default columns exist.
+8. Add card.
+9. Refresh page.
+10. Confirm card persists from Supabase.
+11. Move card.
+12. Refresh page.
+13. Confirm column and position persist.
+14. Open members.
+15. Confirm only real members are shown.
+16. Open activity.
+17. Confirm only real activity logs are shown.
+18. Confirm no fake online/editing users appear.
