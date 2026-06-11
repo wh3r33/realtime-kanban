@@ -5,7 +5,8 @@ import { useBoardsStore } from "./boards";
 import { useCardsStore } from "./cards";
 
 const mocks = vi.hoisted(() => ({
-  moveCard: vi.fn()
+  moveCard: vi.fn(),
+  undoLastBoardAction: vi.fn()
 }));
 
 vi.mock("../services/cardRepository", () => ({
@@ -13,6 +14,7 @@ vi.mock("../services/cardRepository", () => ({
   deleteCard: vi.fn(),
   moveCard: (...args) => mocks.moveCard(...args),
   restoreCard: vi.fn(),
+  undoLastBoardAction: (...args) => mocks.undoLastBoardAction(...args),
   updateCard: vi.fn()
 }));
 
@@ -52,6 +54,7 @@ describe("cards store movement and undo", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     mocks.moveCard.mockReset();
+    mocks.undoLastBoardAction.mockReset();
 
     const auth = useAuthStore();
     auth.setBoardRole("editor");
@@ -77,20 +80,20 @@ describe("cards store movement and undo", () => {
     expect(cards.undoHistory).toHaveLength(1);
   });
 
-  it("undoes a move with a real inverse repository call", async () => {
+  it("undoes through the backend undo RPC", async () => {
     const cards = useCardsStore();
     cards.cards = [card()];
-    mocks.moveCard
-      .mockResolvedValueOnce({ data: card({ columnId: "col-2", column: "Done", position: 0, version: 2 }), error: null })
-      .mockResolvedValueOnce({ data: card({ columnId: "col-1", column: "Todo", position: 0, version: 3 }), error: null });
+    cards.loadCards = vi.fn(async () => {});
+    mocks.moveCard.mockResolvedValueOnce({ data: card({ columnId: "col-2", column: "Done", position: 0, version: 2 }), error: null });
+    mocks.undoLastBoardAction.mockResolvedValueOnce({ data: { status: "ok", undone_action: "card_moved", entity_id: "card-1" }, error: null });
 
     await cards.moveTask("card-1", "col-2", 0);
     const action = await cards.undoLastAction();
 
-    expect(action.type).toBe("move");
-    expect(mocks.moveCard).toHaveBeenLastCalledWith("card-1", "col-1", 0, 2);
-    expect(cards.cardById("card-1").columnId).toBe("col-1");
+    expect(action.undone_action).toBe("card_moved");
+    expect(mocks.undoLastBoardAction).toHaveBeenCalledWith("board-1");
+    expect(cards.loadCards).toHaveBeenCalledWith("board-1");
     expect(cards.undoHistory).toHaveLength(0);
-    expect(cards.redoHistory).toHaveLength(1);
+    expect(cards.redoHistory).toHaveLength(0);
   });
 });

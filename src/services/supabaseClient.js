@@ -38,7 +38,7 @@ export function migrationRequiredError(feature) {
 }
 
 export function supabaseSetupError(context) {
-  return new Error(`${context}. Check that supabase/schema.sql has been run and that Supabase RLS policies allow this authenticated user.`);
+  return new Error(`${context}. Check that Supabase migrations have been applied and that RLS policies allow this authenticated user.`);
 }
 
 export async function getCurrentUser() {
@@ -60,8 +60,8 @@ export async function getCurrentProfile() {
   const { data: user, error: userError } = await getCurrentUser();
   if (userError || !user) return { data: null, error: userError || new Error("No authenticated Supabase user.") };
 
-  const { data, error } = await supabase.from("users").select("*").eq("id", user.id).maybeSingle();
-  warnSupabaseError("users profile lookup failed", error);
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+  warnSupabaseError("profiles lookup failed", error);
   if (error) return { data: null, error };
   if (data) return { data, error: null };
 
@@ -73,18 +73,18 @@ export async function getCurrentProfile() {
   };
 
   const { data: createdProfile, error: insertError } = await supabase
-    .from("users")
+    .from("profiles")
     .insert(fallbackProfile)
     .select()
     .single();
-  warnSupabaseError("users fallback profile insert failed", insertError);
+  warnSupabaseError("profiles fallback insert failed", insertError);
 
   if (insertError) {
     return {
       data: fallbackProfile,
       error: isSupabaseSetupError(insertError)
         ? supabaseSetupError("Profile row is missing and could not be created in Supabase")
-        : new Error("Profile row is missing and could not be created. Check users RLS or handle_new_user trigger.")
+        : new Error("Profile row is missing and could not be created. Check profiles RLS or handle_new_user trigger.")
     };
   }
 

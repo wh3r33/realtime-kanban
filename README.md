@@ -45,7 +45,7 @@ Completed:
 - Board creation inserts `boards`, owner `board_members`, default columns, and a board-created activity log.
 - `/boards/:boardId` loads real board, columns, cards, members, and activity.
 - Card create, update, delete, and move write to `public.cards` and create `activity_logs`.
-- Members page shows only real `board_members` joined with `public.users`.
+- Members page shows only real `board_members` joined with `public.profiles`.
 - Empty database states are honest.
 
 Partial:

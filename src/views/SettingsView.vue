@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useBoardsStore } from "../stores/boards";
 import { useMembersStore } from "../stores/members";
 import { useUiStore } from "../stores/ui";
@@ -19,8 +19,12 @@ function saveSettings() {
 }
 
 function copyShareLink() {
-  uiStore.showToast("Share links are not connected yet");
+  uiStore.showToast("Board URL is ready to share with existing members");
 }
+
+onMounted(() => {
+  membersStore.loadInvitations(boardsStore.selectedBoardId);
+});
 </script>
 
 <template>
@@ -64,15 +68,21 @@ function copyShareLink() {
           <p class="kicker">Invitations</p>
           <h2>Pending access</h2>
         </div>
-        <span class="status-badge viewer">NOT CONNECTED</span>
+        <span class="status-badge synced">CONNECTED</span>
       </div>
       <div class="invite-list">
-        <div class="empty-state compact">
+        <div v-for="invitation in membersStore.invitations" :key="invitation.id" class="invite-row">
+          <div>
+            <strong>{{ invitation.email }}</strong>
+            <span>{{ invitation.role }} · expires {{ new Date(invitation.expiresAt).toLocaleDateString() }}</span>
+          </div>
+        </div>
+        <div v-if="!membersStore.invitations.length" class="empty-state compact">
           <strong>No pending invitations</strong>
-          <span>Invitations are not in the provided schema.</span>
+          <span>Pending board_invites rows appear here for board owners.</span>
         </div>
       </div>
-      <button class="button primary" type="button" @click="uiStore.showToast('Invitations are not connected yet')">Create invite</button>
+      <button class="button primary" type="button" @click="$router.push(`/boards/${selectedBoard?.id}/members`)">Create invite</button>
     </article>
 
     <article class="settings-section-card">

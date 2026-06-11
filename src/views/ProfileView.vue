@@ -22,7 +22,7 @@ const preferences = ref({
     <div>
       <p class="kicker">Profile</p>
       <h1>{{ authStore.currentUserName || "No Supabase user" }}</h1>
-      <p>{{ authStore.profile?.email || "Profile loads from public.users" }}</p>
+      <p>{{ authStore.profile?.email || "Profile loads from public.profiles" }}</p>
     </div>
   </section>
 

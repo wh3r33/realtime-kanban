@@ -7,7 +7,7 @@ function requireClient() {
 }
 
 function mapComment(row) {
-  const user = row.users || {};
+  const user = row.profiles || {};
   return {
     id: row.id,
     cardId: row.card_id,
@@ -24,7 +24,7 @@ export async function listCommentsForBoard(boardId) {
   if (error) return { data: [], error };
   const { data, error: selectError } = await client
     .from("card_comments")
-    .select("*, cards!inner(board_id), users(id, email, name)")
+    .select("*, cards!inner(board_id), profiles(id, email, name)")
     .eq("cards.board_id", boardId)
     .order("created_at", { ascending: true });
   warnSupabaseError("card comments list failed", selectError);
@@ -43,7 +43,7 @@ export async function createComment(cardId, body) {
   const { data, error: insertError } = await client
     .from("card_comments")
     .insert({ card_id: cardId, body: body.trim(), user_id: user.id })
-    .select("*, cards(board_id, title), users(id, email, name)")
+    .select("*, cards(board_id, title), profiles(id, email, name)")
     .single();
   warnSupabaseError("card comment insert failed", insertError);
   if (!insertError && data?.cards?.board_id) {
@@ -63,7 +63,7 @@ export async function updateComment(commentId, body) {
     .from("card_comments")
     .update({ body: body.trim() })
     .eq("id", commentId)
-    .select("*, cards(board_id, title), users(id, email, name)")
+    .select("*, cards(board_id, title), profiles(id, email, name)")
     .maybeSingle();
   warnSupabaseError("card comment update failed", updateError);
   if (!updateError && data?.cards?.board_id) {

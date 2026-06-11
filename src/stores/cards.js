@@ -4,6 +4,7 @@ import {
   deleteCard as removeCardRow,
   moveCard as moveCardRow,
   restoreCard as restoreCardRow,
+  undoLastBoardAction,
   updateCard as updateCardRow
 } from "../services/cardRepository";
 import { insertChecklistItems, listChecklistItemsForBoard, updateChecklistItem } from "../services/checklistRepository";
@@ -46,7 +47,7 @@ function mapCardRow(row) {
     updatedAt: row.updated_at ? new Date(row.updated_at).toLocaleString() : "",
     version: row.version || 1,
     createdAt: row.created_at,
-    deletedAt: row.deleted_at || null
+    deletedAt: row.status === "deleted" ? row.updated_at : null
   };
 }
 
@@ -303,7 +304,7 @@ export const useCardsStore = defineStore("cards", {
       this.errorMessage = this.conflict.message;
     },
     applyCardChange(payload) {
-      if (payload.eventType === "DELETE" || payload.new?.deleted_at) {
+      if (payload.eventType === "DELETE" || payload.new?.status === "deleted") {
         this.removeCard(payload.old?.id || payload.new?.id, { remote: true });
         return;
       }
@@ -592,13 +593,16 @@ export const useCardsStore = defineStore("cards", {
     },
     async undoLastAction() {
       if (!this.assertCanMutate()) return { error: "viewer" };
-      const action = this.undoHistory[this.undoHistory.length - 1];
-      if (!action) return null;
-      const result = await this.applyHistoryAction(action, "undo");
-      if (result?.error) return result;
+      const boardId = useBoardsStore().selectedBoardId;
+      if (!boardId) return { error: new Error("No board selected.") };
+      const { data, error } = await undoLastBoardAction(boardId);
+      this.errorMessage = error?.message || "";
+      if (error) return { error };
+      await this.loadCards(boardId);
+      await useUiStore().loadActivity(boardId);
       this.undoHistory.pop();
-      this.redoHistory.push(action);
-      return action;
+      this.redoHistory = [];
+      return data;
     },
     async redoLastAction() {
       if (!this.assertCanMutate()) return { error: "viewer" };
