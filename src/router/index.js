@@ -7,6 +7,7 @@ import MembersView from "../views/MembersView.vue";
 import PlaceholderView from "../views/PlaceholderView.vue";
 import ProfileView from "../views/ProfileView.vue";
 import SettingsView from "../views/SettingsView.vue";
+import WelcomeView from "../views/WelcomeView.vue";
 
 const placeholder = (title, eyebrow = "realtime-kanban") => ({
   component: PlaceholderView,
@@ -14,7 +15,7 @@ const placeholder = (title, eyebrow = "realtime-kanban") => ({
 });
 
 const routes = [
-  { path: "/", redirect: "/boards" },
+  { path: "/", component: WelcomeView },
   { path: "/login", ...placeholder("Sign in", "Authentication") },
   { path: "/register", ...placeholder("Create account", "Authentication") },
   { path: "/forgot-password", ...placeholder("Reset password", "Authentication") },
