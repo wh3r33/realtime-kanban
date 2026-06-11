@@ -5,4 +5,6 @@ import router from "./router";
 import "./assets/styles/tokens.css";
 import "./assets/styles/global.css";
 
-createApp(App).use(createPinia()).use(router).mount("#app");
+const pinia = createPinia();
+
+createApp(App).use(pinia).use(router).mount("#app");

@@ -728,6 +728,30 @@ svg {
   padding-top: 2px;
 }
 
+.card-move-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.mini-move-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 30px;
+  border: 1px solid rgba(16, 16, 15, 0.1);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+  font-weight: 900;
+  transition: background var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease);
+}
+
+.mini-move-button:hover {
+  transform: translateY(-1px);
+  background: var(--acid);
+}
+
 .assignee {
   display: flex;
   align-items: center;
@@ -1111,6 +1135,12 @@ svg {
   height: 38px;
   padding: 0 16px;
   border-radius: var(--radius-pill);
+}
+
+.system-state {
+  display: grid;
+  min-height: calc(100vh - 180px);
+  place-items: center;
 }
 
 .form-card,

@@ -15,12 +15,18 @@ export const members = [
 ];
 
 export const cards = [
-  { id: "api-task", boardId: "board-main", title: "API Task", description: "Define optimistic updates, retry states, and visible event confirmations for board movement.", column: "In Progress", assigneeId: "u-nn", status: "editing", labels: ["LIVE", "EDITING"], history: ["Created in Backlog", "Moved to In Progress by NN User"], updatedAt: "just now" },
-  { id: "design-system", boardId: "board-design", title: "Design System", description: "Refine badge language, glass surfaces, typography rhythm, and status hierarchy.", column: "Todo", assigneeId: "u-02", status: "editing", labels: ["EDITING"], history: ["User 02 started editing"], updatedAt: "2m ago" },
-  { id: "websocket-layer", boardId: "board-realtime", title: "WebSocket Layer", description: "Simulate conflict detection, lock ownership, and event ordering for shared cards.", column: "Review", assigneeId: "u-03", status: "conflict", labels: ["CONFLICT", "LIVE"], history: ["Conflict detected in WebSocket Layer"], updatedAt: "4m ago" },
-  { id: "mobile-scroll", boardId: "board-design", title: "Mobile Board Scroll", description: "Preserve five-column context with controlled horizontal movement on small screens.", column: "Backlog", assigneeId: "u-gu", status: "live", labels: ["ONLINE"], history: ["Guest User opened mobile preview"], updatedAt: "8m ago" },
-  { id: "permissions-model", boardId: "board-realtime", title: "Permissions Model", description: "Show locked cards without hiding ownership, reason, or current collaborator.", column: "Backlog", assigneeId: "u-nn", status: "locked", labels: ["LOCKED"], history: ["NN User locked Permissions Model"], updatedAt: "11m ago" },
-  { id: "release-notes", boardId: "board-main", title: "Release Notes", description: "Write short technical status notes for live product changes.", column: "Done", assigneeId: "u-02", status: "live", labels: ["LIVE"], history: ["User 02 completed release notes"], updatedAt: "14m ago" }
+  { id: "api-task", boardId: "board-main", title: "API Task", description: "Define optimistic updates, retry states, and visible event confirmations for board movement.", column: "In Progress", position: 0, assigneeId: "u-nn", status: "editing", labels: ["LIVE", "EDITING"], history: ["Created in Backlog", "Moved to In Progress by NN User"], updatedAt: "just now" },
+  { id: "design-system", boardId: "board-design", title: "Design System", description: "Refine badge language, glass surfaces, typography rhythm, and status hierarchy.", column: "Todo", position: 0, assigneeId: "u-02", status: "editing", labels: ["EDITING"], history: ["User 02 started editing"], updatedAt: "2m ago" },
+  { id: "websocket-layer", boardId: "board-realtime", title: "WebSocket Layer", description: "Simulate conflict detection, lock ownership, and event ordering for shared cards.", column: "Review", position: 0, assigneeId: "u-03", status: "conflict", labels: ["CONFLICT", "LIVE"], history: ["Conflict detected in WebSocket Layer"], updatedAt: "4m ago" },
+  { id: "mobile-scroll", boardId: "board-design", title: "Mobile Board Scroll", description: "Preserve five-column context with controlled horizontal movement on small screens.", column: "Backlog", position: 0, assigneeId: "u-gu", status: "live", labels: ["ONLINE"], history: ["Guest User opened mobile preview"], updatedAt: "8m ago" },
+  { id: "permissions-model", boardId: "board-realtime", title: "Permissions Model", description: "Show locked cards without hiding ownership, reason, or current collaborator.", column: "Backlog", position: 0, assigneeId: "u-nn", status: "locked", labels: ["LOCKED"], history: ["NN User locked Permissions Model"], updatedAt: "11m ago" },
+  { id: "release-notes", boardId: "board-main", title: "Release Notes", description: "Write short technical status notes for live product changes.", column: "Done", position: 0, assigneeId: "u-02", status: "live", labels: ["LIVE"], history: ["User 02 completed release notes"], updatedAt: "14m ago" }
+];
+
+export const notifications = [
+  { id: "note-conflict", type: "conflict", title: "Conflict requires review", body: "WebSocket Layer has two competing edits.", createdAt: "4m ago", unread: true },
+  { id: "note-invite", type: "invite", title: "Invite accepted", body: "Guest User joined QA Review.", createdAt: "18m ago", unread: true },
+  { id: "note-sync", type: "sync", title: "Sync restored", body: "Realtime channel replay completed without rejected mutations.", createdAt: "31m ago", unread: false }
 ];
 
 export const comments = [

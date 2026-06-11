@@ -1,117 +1,82 @@
 # realtime-kanban
 
-realtime-kanban is a static HTML/CSS/JavaScript prototype for a collaborative kanban workspace. It models board navigation, cards, presence, activity, invitations, conflicts, offline queue behavior, notifications, and bonus utility views before migration to Vue.
+Vue 3 collaborative kanban prototype with board-scoped routing, Pinia state, cross-column card movement, notifications, responsive layouts, dark mode, and a thin persistence adapter ready for Supabase.
 
-## Current Stack
+The legacy static prototype remains in `prototype/` as migration reference material. The active app is the Vite/Vue runtime in `src/`.
 
-- HTML pages in root, `authentication/`, `workspace/`, `bonus/`, and `system/`
-- Shared CSS in `styles.css`
-- Vanilla ES modules under `js/`, loaded through `js/app.js`
-- Mock data and mock store objects in `js/data/mockStores.js`
-- Local static assets in `assets/`
+## Stack
 
-`script.js` is now a legacy reference file only. Static pages should load `js/app.js` with `type="module"`.
+- Vue 3 and Vite
+- Vue Router 4
+- Pinia
+- Supabase JS client, currently optional and gated by environment variables
+- CSS tokens and global styles in `src/assets/styles/`
 
 ## Run Locally
 
 ```bash
-python3 -m http.server 8000
+npm install
+npm run dev
 ```
 
-Open `http://127.0.0.1:8000/`.
-
-The prototype can also be inspected as static files, but running a local server is preferred because future Vue/Vite migration will use route-based navigation.
-
-## Page Map
-
-| Static page | Future Vue route |
-|---|---|
-| `index.html` | `/` |
-| `authentication/login.html` | `/auth/login` |
-| `authentication/register.html` | `/auth/register` |
-| `authentication/forgot-password.html` | `/auth/forgot-password` |
-| `authentication/accept-invitation.html` | `/auth/invitations/:token` |
-| `workspace/boards.html` | `/boards` |
-| `workspace/board.html?boardId=board-main` | `/boards/:boardId` |
-| `workspace/activity.html?boardId=board-main` | `/boards/:boardId/activity` |
-| `workspace/members.html?boardId=board-main` | `/boards/:boardId/members` |
-| `workspace/settings.html?boardId=board-main` | `/boards/:boardId/settings` |
-| `workspace/profile.html` | `/profile` |
-| `bonus/ai-assistant.html` | `/bonus/ai-assistant` |
-| `bonus/analytics.html` | `/bonus/analytics` |
-| `bonus/search.html` | `/bonus/search` |
-| `bonus/notifications.html` | `/bonus/notifications` |
-| `bonus/offline.html` | `/bonus/offline` |
-| `system/403.html` | `/403` |
-| `system/404.html` | `/404` |
-| `system/loading.html` | loading/suspense state |
-
-## Implemented Prototype Features
-
-- Multiple board cards with mock board IDs
-- Board-scoped static navigation through centralized router helpers and `boardId` query params
-- Kanban columns and task cards
-- Drag-and-drop card movement with undo/redo history
-- Task drawer with details, comments, locks, editing state, and activity history
-- Activity feed and activity filters
-- Member, role, invitation, notification, search, analytics, AI assistant, and offline queue screens
-- Modal, toast, custom select, badge, avatar, and button patterns
-- Basic keyboard and focus handling for modal, drawer, and custom select interactions
-
-## Module Map
-
-```text
-js/data/mockStores.js      mock store data and selectors
-js/core/router.js          static route bridge and future Vue Router metadata
-js/core/dom.js             focus helpers and aria-live region setup
-js/core/events.js          global Escape and focus-trap coordination
-js/ui/                     toast, modal, drawer, dropdown primitives
-js/features/               board, tasks, comments, activity, members, settings,
-                           search, notifications, offline, invites, conflicts, ai
-js/app.js                  composition root for static pages
-```
-
-Template strings are isolated inside feature modules and named after future Vue component boundaries, for example `renderTaskCardTemplate`, `renderBoardColumnTemplate`, `renderActivityItemTemplate`, `renderNotificationTemplate`, and `renderSearchResultTemplate`.
-
-## Validation
+Build validation:
 
 ```bash
-node --check js/app.js
-node tools/audit-js.mjs
-node tools/audit-links.mjs
-node tools/audit-routes.mjs
+npm run build
 ```
 
-Optional static smoke test:
+`npm run check` currently aliases the production build. No lint script exists yet.
+
+## Environment
+
+Copy `.env.example` when Supabase integration begins:
 
 ```bash
-python3 -m http.server 8000
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
 ```
 
-Then open `http://127.0.0.1:8000/`.
+When these values are absent, card movement persistence uses local mock storage. When they are present, `src/services/cardRepository.js` is ready to write movement rows through the Supabase client.
 
-## Mock-Only Features
+## Routes
 
-- Authentication and session state
-- Realtime transport, presence channels, edit locks, and sync heartbeats
-- Role enforcement and permissions
-- Invitation tokens and invitation delivery
-- Conflict reconciliation
-- Offline persistence and replay
-- AI generation
-- Analytics calculations
-- Notification delivery and persistence
+| Route | Status | View |
+|---|---:|---|
+| `/` | completed | welcome |
+| `/boards` | completed | board dashboard |
+| `/boards/:boardId` | completed | kanban board |
+| `/boards/:boardId/activity` | completed | activity timeline |
+| `/boards/:boardId/members` | completed | members and roles |
+| `/boards/:boardId/settings` | completed | board settings |
+| `/profile` | completed | profile preferences |
+| `/bonus/notifications` | completed | notification list |
+| `/bonus/analytics` | partial | placeholder |
+| `/bonus/search` | partial | placeholder |
+| `/bonus/offline` | partial | placeholder |
+| `/bonus/ai-assistant` | partial | placeholder |
+| `/auth/login` | partial | placeholder |
+| `/auth/register` | partial | placeholder |
+| `/auth/forgot-password` | partial | placeholder |
+| `/auth/invitations/:token` | partial | placeholder |
+| `/403`, `/404`, `/loading` | completed | system states |
 
-## Team Responsibility Placeholders
+Legacy aliases such as `/board`, `/activity`, `/members`, and `/settings` redirect to the default board-scoped route.
 
-- Product owner: TBD
-- Frontend lead: TBD
-- Backend/API lead: TBD
-- Realtime/Supabase owner: TBD
-- Design system owner: TBD
-- Accessibility reviewer: TBD
-- QA owner: TBD
+## Core Behavior
 
-## Future Vue Migration Note
+- Boards, cards, members, auth session, notifications, activity, and UI preferences live in Pinia.
+- Card drag and drop moves cards across columns and stores per-column `position`.
+- Undo and redo share the same card movement action path.
+- Keyboard card movement uses left/right controls on each card and announces movement through an `aria-live` region.
+- Notifications can be marked read from the notifications route.
+- Dark mode is stored in local storage and applied through `data-theme`.
 
-Do not migrate directly from page-level DOM scripting to a final backend implementation. First migrate the current mock data and behavior into Vue 3, Vite, Vue Router, and Pinia while preserving the existing UI. Then replace mock actions with API, Supabase Realtime, and RLS-backed behavior in separate phases.
+## Documentation
+
+- [Architecture](ARCHITECTURE.md)
+- [Migration checklist](MIGRATION_CHECKLIST.md)
+- [Branch strategy](BRANCH_STRATEGY.md)
+- [Architecture diagram source](docs/architecture-diagram.mmd)
+- [Screenshots checklist](docs/screenshots-checklist.md)
+- [Demo video checklist](docs/demo-video-checklist.md)
+- [Project defense checklist](docs/project-defense-checklist.md)

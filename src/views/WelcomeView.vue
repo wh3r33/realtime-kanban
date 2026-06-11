@@ -24,8 +24,8 @@
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>
           </RouterLink>
-          <RouterLink class="button secondary" to="/board">Open live board</RouterLink>
-          <RouterLink class="button secondary" to="/login">Sign in</RouterLink>
+          <RouterLink class="button secondary" to="/boards/board-main">Open live board</RouterLink>
+          <RouterLink class="button secondary" to="/auth/login">Sign in</RouterLink>
         </div>
         <p>
           Collaborative board prototype with visible live state, motion feedback, and editorial workspace structure.

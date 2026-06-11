@@ -7,7 +7,7 @@ const membersStore = useMembersStore();
 const uiStore = useUiStore();
 const profile = computed(() => membersStore.memberById("u-nn"));
 const preferences = ref({
-  paper: true,
+  theme: uiStore.theme,
   glass: true,
   reducedMotion: false,
   conflicts: true,
@@ -29,7 +29,13 @@ const preferences = ref({
   <section class="page-grid two-col">
     <div class="panel">
       <h2>Theme controls</h2>
-      <label><input v-model="preferences.paper" type="checkbox" /> Warm paper background</label>
+      <label>
+        Interface theme
+        <select v-model="preferences.theme" class="input" @change="uiStore.setTheme(preferences.theme)">
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
       <label><input v-model="preferences.glass" type="checkbox" /> Quiet glass surfaces</label>
       <label><input v-model="preferences.reducedMotion" type="checkbox" /> Reduced realtime motion</label>
     </div>

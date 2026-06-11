@@ -10,7 +10,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(["open", "drag-start"]);
+const emit = defineEmits(["open", "drag-start", "move-left", "move-right"]);
 const membersStore = useMembersStore();
 const assignee = computed(() => membersStore.memberById(props.task.assigneeId));
 const editor = computed(() => membersStore.editorForCard(props.task.id));
@@ -29,7 +29,7 @@ const stateClass = computed(() => ({
     draggable="true"
     data-component="TaskCard"
     tabindex="0"
-    :aria-label="task.title"
+    :aria-label="`${task.title}, ${task.column} column`"
     @click="emit('open', task.id)"
     @keydown.enter.prevent="emit('open', task.id)"
     @keydown.space.prevent="emit('open', task.id)"
@@ -55,6 +55,10 @@ const stateClass = computed(() => ({
         {{ assignee.name }}
       </span>
       <span class="status-badge" :class="badgeClass(task.status)">{{ task.status.toUpperCase() }}</span>
+    </div>
+    <div class="card-move-actions" aria-label="Keyboard card movement">
+      <button type="button" class="mini-move-button" aria-label="Move card left" @click.stop="emit('move-left')">←</button>
+      <button type="button" class="mini-move-button" aria-label="Move card right" @click.stop="emit('move-right')">→</button>
     </div>
   </article>
 </template>

@@ -3,8 +3,8 @@ import { boards, columns } from "../data/mockData";
 
 export const useBoardsStore = defineStore("boards", {
   state: () => ({
-    boards,
-    columns,
+    boards: JSON.parse(JSON.stringify(boards)),
+    columns: [...columns],
     selectedBoardId: "board-main",
     boardSettings: {
       language: "en",
@@ -13,7 +13,8 @@ export const useBoardsStore = defineStore("boards", {
     }
   }),
   getters: {
-    selectedBoard: (state) => state.boards.find((board) => board.id === state.selectedBoardId) || state.boards[0]
+    selectedBoard: (state) => state.boards.find((board) => board.id === state.selectedBoardId) || state.boards[0],
+    boardById: (state) => (boardId) => state.boards.find((board) => board.id === boardId)
   },
   actions: {
     selectBoard(boardId) {

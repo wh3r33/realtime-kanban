@@ -16,7 +16,7 @@ const totalMembers = computed(() => boardsStore.boards.reduce((sum, board) => su
 function openBoard(boardId) {
   boardsStore.selectBoard(boardId);
   uiStore.showToast(`${boardsStore.selectedBoard.name} opened`);
-  router.push("/board");
+  router.push(`/boards/${boardId}`);
 }
 
 function createBoard() {

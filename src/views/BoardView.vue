@@ -12,13 +12,14 @@ const cardsStore = useCardsStore();
 const membersStore = useMembersStore();
 const uiStore = useUiStore();
 const draggedTaskId = ref(null);
+const liveMessage = ref("");
 let heartbeatTimer;
 
 const currentBoardCards = computed(() => cardsStore.cards.filter((task) => task.boardId === boardsStore.selectedBoardId));
 const cardsByColumn = computed(() =>
   boardsStore.columns.map((column) => ({
     name: column,
-    cards: currentBoardCards.value.filter((task) => task.column === column)
+    cards: cardsStore.cardsForColumn(boardsStore.selectedBoardId, column)
   }))
 );
 
@@ -26,12 +27,22 @@ function openTask(taskId) {
   cardsStore.selectCard(taskId);
 }
 
-function moveTask(columnName) {
-  const action = cardsStore.moveTask(draggedTaskId.value, columnName);
+async function moveTask(columnName, toIndex = Number.POSITIVE_INFINITY) {
+  const action = await cardsStore.moveTask(draggedTaskId.value, columnName, toIndex);
   draggedTaskId.value = null;
   if (!action) return;
   uiStore.addActivity("card_moved", "Card moved", `NN User moved ${action.title} to ${action.to}.`);
+  liveMessage.value = `${action.title} moved to ${action.to}, position ${action.toPosition + 1}`;
   uiStore.showToast(`${action.title} moved to ${action.to}`);
+  if (cardsStore.movementError) uiStore.showToast(`Movement persistence failed: ${cardsStore.movementError}`);
+}
+
+async function moveTaskByKeyboard(task, direction) {
+  const currentIndex = boardsStore.columns.indexOf(task.column);
+  const targetColumn = boardsStore.columns[currentIndex + direction];
+  if (!targetColumn) return;
+  draggedTaskId.value = task.id;
+  await moveTask(targetColumn);
 }
 
 onMounted(() => {
@@ -61,6 +72,7 @@ onBeforeUnmount(() => {
   </section>
 
   <section class="board-layout" data-component="Board">
+    <p class="sr-only" aria-live="polite">{{ liveMessage }}</p>
     <article
       v-for="column in cardsByColumn"
       :key="column.name"
@@ -80,6 +92,8 @@ onBeforeUnmount(() => {
           :task="task"
           @open="openTask"
           @drag-start="draggedTaskId = $event"
+          @move-left="moveTaskByKeyboard(task, -1)"
+          @move-right="moveTaskByKeyboard(task, 1)"
         />
         <div v-if="!column.cards.length" class="empty-state informative">
           <strong>No cards here</strong>

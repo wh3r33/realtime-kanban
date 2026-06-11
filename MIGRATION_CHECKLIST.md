@@ -1,179 +1,103 @@
 # realtime-kanban Migration Checklist
 
-This checklist keeps the current static prototype ready for a later Vue 3, Vite, Pinia, and Vue Router migration. Do not treat it as a request to migrate now.
+## Completed
 
-## Readiness Checklist
+- [x] Vue 3 app shell with Vite.
+- [x] Vue Router installed and configured.
+- [x] Canonical board-scoped routes under `/boards/:boardId`.
+- [x] Compatibility redirects for earlier flat Vue routes.
+- [x] Pinia installed and active.
+- [x] Board, card, member, auth, and UI stores.
+- [x] Core component architecture: `AppShell`, `TopBar`, `BoardView`, `TaskCard`, `TaskDrawer`, `ActivityRail`, `ToastStack`.
+- [x] Boards dashboard migrated to Vue.
+- [x] Board state, selected card, activity feed, toasts, and settings flow through Vue state.
+- [x] Native drag/drop card movement.
+- [x] Cross-column movement.
+- [x] Per-column card positions persisted in Pinia state.
+- [x] Undo and redo for card movement.
+- [x] Persistence adapter prepared for Supabase card movement.
+- [x] Notifications route backed by Pinia.
+- [x] Loading, 403, and 404 system state views.
+- [x] Empty states for columns and filtered activity.
+- [x] Responsive CSS for desktop, tablet, and mobile.
+- [x] Dark mode via Pinia, local storage, and `data-theme`.
+- [x] Focus-visible styles and reduced-motion CSS.
+- [x] Keyboard movement controls for cards.
+- [x] `.env.example`.
+- [x] GitHub Actions build workflow.
+- [x] Branch strategy documentation.
+- [x] Architecture diagram source.
+- [x] Screenshots checklist.
+- [x] Demo video checklist.
+- [x] Project defense checklist.
 
-- [x] Static page tree is shallow and active at the repo root.
-- [x] Shared CSS tokens exist in grouped sections in `styles.css`.
-- [x] Mock state exists in `js/data/mockStores.js`.
-- [x] Vanilla behavior is split into `js/data`, `js/core`, `js/ui`, and `js/features`.
-- [x] Static pages expose `data-page` and future `data-route` metadata.
-- [x] Board pages support centralized `boardId` query params as a bridge to route params.
-- [x] Feature templates are isolated as future Vue component boundaries.
-- [x] Lightweight validation scripts exist in `tools/`.
-- [ ] Replace isolated feature templates with Vue components.
-- [ ] Replace global mutable mock stores with Pinia stores.
-- [ ] Add route guards for auth, membership, and board access.
-- [ ] Add component tests for board movement, drawer state, conflicts, and invites.
-- [ ] Add accessibility regression checks.
-- [ ] Add responsive regression checks.
+## Partial
 
-## Vue Router Route Map
+- [ ] Auth views are route placeholders and still need full forms.
+- [ ] Bonus analytics, search, offline, and AI assistant routes are placeholders.
+- [ ] Drag/drop supports keyboard left/right movement but not full roving tabindex pickup/drop behavior.
+- [ ] Error handling is present as system states and store flags, but no backend error mapping exists yet.
+- [ ] Environment variables are documented, but Supabase schema and deployed project are not connected.
+- [ ] Automated accessibility and responsive regression checks are not installed.
+
+## Missing
+
+- [ ] Component tests for board movement, drawer state, conflicts, notifications, and route guards.
+- [ ] Real authentication.
+- [ ] Supabase schema, migrations, realtime subscriptions, and RLS policies.
+- [ ] Production deployment configuration.
+
+## Current Route Map
 
 | Route | View |
 |---|---|
-| `/` | WelcomeView or redirect to `/boards` |
-| `/auth/login` | LoginView |
-| `/auth/register` | RegisterView |
-| `/auth/forgot-password` | ForgotPasswordView |
-| `/auth/invitations/:token` | AcceptInvitationView |
-| `/boards` | BoardsView |
-| `/boards/:boardId` | BoardView |
-| `/boards/:boardId/activity` | ActivityView |
-| `/boards/:boardId/members` | MembersView |
-| `/boards/:boardId/settings` | SettingsView |
-| `/profile` | ProfileView |
-| `/bonus/ai-assistant` | AiAssistantView |
-| `/bonus/analytics` | AnalyticsView |
-| `/bonus/search` | SearchView |
-| `/bonus/notifications` | NotificationsView |
-| `/bonus/offline` | OfflineView |
-| `/403` | ForbiddenView |
-| `/404` | NotFoundView |
-| `/:pathMatch(.*)*` | NotFoundView |
+| `/` | `WelcomeView` |
+| `/auth/login` | `PlaceholderView` |
+| `/auth/register` | `PlaceholderView` |
+| `/auth/forgot-password` | `PlaceholderView` |
+| `/auth/invitations/:token` | `PlaceholderView` |
+| `/boards` | `BoardsView` |
+| `/boards/:boardId` | `BoardView` |
+| `/boards/:boardId/activity` | `ActivityView` |
+| `/boards/:boardId/members` | `MembersView` |
+| `/boards/:boardId/settings` | `SettingsView` |
+| `/profile` | `ProfileView` |
+| `/bonus/notifications` | `NotificationsView` |
+| `/bonus/analytics` | `PlaceholderView` |
+| `/bonus/search` | `PlaceholderView` |
+| `/bonus/offline` | `PlaceholderView` |
+| `/bonus/ai-assistant` | `PlaceholderView` |
+| `/403` | `SystemStateView` |
+| `/404` | `SystemStateView` |
+| `/loading` | `SystemStateView` |
 
-## Pinia Stores
+## Store Contracts
 
-- `AuthStore`: current user, session, invitation token, login/logout/accept invitation actions.
-- `BoardStore`: boards, selected board ID, board settings, board-scoped columns.
-- `TaskStore`: cards, selected card, comments, undo history, redo history, movement and conflict actions.
-- `PresenceStore`: online users, editing users, locks, sync state, channel lifecycle.
-- `ActivityStore`: activity events, filters, event publishing, event replay.
-- `NotificationStore`: notifications, unread count, read/unread actions.
-- `SettingsStore`: language, theme, conflict strategy, persisted preferences.
-- `InvitationStore`: pending invites, accepted invites, create/revoke/accept actions.
-- `OfflineStore`: connection state, pending queue, retry and replay actions.
+- `AuthStore`: current user, session, invitation.
+- `BoardStore`: boards, selected board ID, columns, board settings.
+- `CardsStore`: cards, comments, selected card, undo/redo history, movement persistence.
+- `MembersStore`: members, editing users, locks.
+- `UiStore`: sync state, activity events, notifications, toasts, theme, loading/error flags.
 
-## Component Extraction List
+## Supabase Tasks
 
-Global:
-- `AppShell`
-- `TopBar`
-- `MainNav`
-- `Modal`
-- `Toast`
-- `Button`
-- `Avatar`
-- `Badge`
-- `Dropdown`
-
-Workspace:
-- `BoardHeader`
-- `BoardColumn`
-- `TaskCard`
-- `TaskDrawer`
-- `CommentList`
-- `CommentForm`
-- `ActivityRail`
-- `PresenceStrip`
-
-Members:
-- `MemberCard`
-- `RoleBadge`
-- `InviteList`
-
-Settings:
-- `SettingsSection`
-- `CustomSelect`
-- `SyncStatusPanel`
-- `DangerZone`
-
-Bonus:
-- `AiAssistantPanel`
-- `AnalyticsCard`
-- `NotificationItem`
-- `SearchResultCard`
-- `OfflineQueue`
-
-System/Auth:
-- `AuthLayout`
-- `AuthFormCard`
-- `InvitationPreview`
-- `ErrorState`
-- `LoadingState`
-
-## Backend/API Contracts Needed
-
-- Auth session contract: current user, workspace membership, role, invite token state.
-- Board contract: list boards, get board by ID, update board settings.
-- Column contract: list columns by board, reorder columns when needed.
-- Card contract: list cards by board, create/update/move/delete cards.
-- Comment contract: list/add/delete comments by card.
-- Activity contract: append events, list events by board, filter events.
-- Notification contract: list notifications, mark read/unread, unread count.
-- Invitation contract: create invite, accept token, revoke invite.
-- Conflict contract: compare local/server values, resolve with selected strategy.
-- Offline contract: queue mutation, retry mutation, reconcile result.
-
-## Supabase Realtime Tasks
-
-- Define board channels by `boardId`.
-- Subscribe to card insert/update/delete/move events.
-- Subscribe to comment insert/delete events.
-- Subscribe to activity event inserts.
+- Create schema for boards, columns, cards, comments, activity, notifications, invitations, and card movements.
+- Replace local movement log in `cardRepository` with verified table writes.
+- Subscribe to board-scoped card insert/update/delete/move events.
+- Subscribe to comment and activity inserts.
 - Publish presence join/leave and editing/viewing state.
-- Publish and clear card lock state.
-- Handle reconnect and replay missed events.
-- Add optimistic update rollback when server rejection or conflict occurs.
+- Add optimistic rollback when server persistence fails.
+- Add RLS policies for board membership and role-based mutations.
 
-## RLS Tasks
-
-- Enforce board membership on board, column, card, comment, activity, invite, and notification tables.
-- Enforce owner/editor/viewer permissions.
-- Block viewer mutations at the database layer.
-- Restrict invite creation and revocation to owners or configured editors.
-- Ensure presence and activity rows are scoped to boards the user can access.
-- Add policies for conflict and offline replay mutations.
-
-## Accessibility Tasks
-
-- Keep visible focus states for all interactive controls.
-- Preserve modal focus trap, initial focus, Escape close, and return focus.
-- Treat task drawer as a dialog-like surface with `aria-modal`, initial focus, Escape close, and return focus.
-- Preserve custom select keyboard handling for Enter, Escape, ArrowDown, and ArrowUp.
-- Add keyboard alternatives for drag-and-drop before production.
-- TODO for Vue keyboard DnD: implement a roving-tabindex `TaskCard` list per column, Space to pick up/drop, Arrow keys to choose target column/index, `aria-describedby` instructions, `aria-live` movement announcements, and Pinia-backed `moveCard({ cardId, toColumn, toIndex })` so pointer and keyboard paths share one action.
-- Ensure clickable cards and notifications have button-equivalent semantics and keyboard activation.
-- Verify color contrast against WCAG AA.
-
-## Responsive Tasks
-
-- Verify desktop, tablet, and mobile layouts for all routes.
-- Confirm top navigation does not clip primary actions.
-- Confirm board horizontal scrolling works on touch devices.
-- Confirm activity rail and toast stack do not overlap critical controls.
-- Confirm task drawer is usable on narrow screens.
-- Confirm custom select menus are not clipped.
-
-## Migration Order
-
-1. Create Vite/Vue app shell and route table.
-2. Move design tokens and global CSS into the Vue app without visual redesign.
-3. Port `mockStores` into Pinia stores with the same data shape.
-4. Port global components from `js/ui` and the shell strategy: `AppShell`, `TopBar`, `MainNav`, `Modal`, `Toast`, `Button`, `Avatar`, `Badge`, `Dropdown`.
-5. Replace `js/core/router.js` query bridge with Vue Router route params.
-6. Port board, columns, cards, drawer, comments, undo/redo, and conflict modal.
-7. Port members, settings, activity, search, notifications, offline, analytics, and AI views.
-8. Add tests around stores, route params, and component rendering.
-9. Integrate backend APIs.
-10. Integrate Supabase Realtime and RLS.
-
-## Static Validation Commands
+## Validation
 
 ```bash
-node --check js/app.js
-node tools/audit-js.mjs
-node tools/audit-links.mjs
-node tools/audit-routes.mjs
+npm install
+npm run build
+```
+
+Optional:
+
+```bash
+npm run check
 ```

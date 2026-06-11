@@ -62,3 +62,25 @@
   --duration-base: 220ms;
   --duration-slow: 320ms;
 }
+
+:root[data-theme="dark"] {
+  --paper: #121414;
+  --ink: #f4f5ef;
+  --muted: #bbbdb6;
+  --soft-ink: rgba(244, 245, 239, 0.76);
+  --line: rgba(244, 245, 239, 0.14);
+  --line-subtle: rgba(244, 245, 239, 0.09);
+  --panel: rgba(28, 31, 31, 0.82);
+  --panel-strong: rgba(24, 27, 27, 0.94);
+  --white: #1b1e1e;
+  --accent: #7d9bff;
+  --acid: #d6ff00;
+  --danger: #ff7b7b;
+  --success: #62d6a3;
+  --warning: #e5ad4d;
+  --focus-ring: 0 0 0 3px rgba(125, 155, 255, 0.28);
+  --shadow-soft: 0 4px 10px rgba(0, 0, 0, 0.22);
+  --shadow-card: 0 3px 9px rgba(0, 0, 0, 0.18);
+  --shadow-lift: 0 6px 12px rgba(0, 0, 0, 0.24);
+  color-scheme: dark;
+}
