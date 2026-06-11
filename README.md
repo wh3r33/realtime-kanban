@@ -6,9 +6,11 @@ realtime-kanban is a static HTML/CSS/JavaScript prototype for a collaborative ka
 
 - HTML pages in root, `authentication/`, `workspace/`, `bonus/`, and `system/`
 - Shared CSS in `styles.css`
-- Shared vanilla JavaScript in `script.js`
-- Mock data and mock store objects in `script.js`
+- Vanilla ES modules under `js/`, loaded through `js/app.js`
+- Mock data and mock store objects in `js/data/mockStores.js`
 - Local static assets in `assets/`
+
+`script.js` is now a legacy reference file only. Static pages should load `js/app.js` with `type="module"`.
 
 ## Run Locally
 
@@ -47,7 +49,7 @@ The prototype can also be inspected as static files, but running a local server 
 ## Implemented Prototype Features
 
 - Multiple board cards with mock board IDs
-- Board-scoped static navigation through `boardId` query params
+- Board-scoped static navigation through centralized router helpers and `boardId` query params
 - Kanban columns and task cards
 - Drag-and-drop card movement with undo/redo history
 - Task drawer with details, comments, locks, editing state, and activity history
@@ -55,6 +57,38 @@ The prototype can also be inspected as static files, but running a local server 
 - Member, role, invitation, notification, search, analytics, AI assistant, and offline queue screens
 - Modal, toast, custom select, badge, avatar, and button patterns
 - Basic keyboard and focus handling for modal, drawer, and custom select interactions
+
+## Module Map
+
+```text
+js/data/mockStores.js      mock store data and selectors
+js/core/router.js          static route bridge and future Vue Router metadata
+js/core/dom.js             focus helpers and aria-live region setup
+js/core/events.js          global Escape and focus-trap coordination
+js/ui/                     toast, modal, drawer, dropdown primitives
+js/features/               board, tasks, comments, activity, members, settings,
+                           search, notifications, offline, invites, conflicts, ai
+js/app.js                  composition root for static pages
+```
+
+Template strings are isolated inside feature modules and named after future Vue component boundaries, for example `renderTaskCardTemplate`, `renderBoardColumnTemplate`, `renderActivityItemTemplate`, `renderNotificationTemplate`, and `renderSearchResultTemplate`.
+
+## Validation
+
+```bash
+node --check js/app.js
+node tools/audit-js.mjs
+node tools/audit-links.mjs
+node tools/audit-routes.mjs
+```
+
+Optional static smoke test:
+
+```bash
+python3 -m http.server 8000
+```
+
+Then open `http://127.0.0.1:8000/`.
 
 ## Mock-Only Features
 

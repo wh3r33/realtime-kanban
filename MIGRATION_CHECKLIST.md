@@ -5,11 +5,14 @@ This checklist keeps the current static prototype ready for a later Vue 3, Vite,
 ## Readiness Checklist
 
 - [x] Static page tree is shallow and active at the repo root.
-- [x] Shared CSS tokens exist in `styles.css`.
-- [x] Mock state exists in `script.js`.
+- [x] Shared CSS tokens exist in grouped sections in `styles.css`.
+- [x] Mock state exists in `js/data/mockStores.js`.
+- [x] Vanilla behavior is split into `js/data`, `js/core`, `js/ui`, and `js/features`.
 - [x] Static pages expose `data-page` and future `data-route` metadata.
-- [x] Board pages support `boardId` query params as a bridge to route params.
-- [ ] Replace direct DOM renderers with Vue components.
+- [x] Board pages support centralized `boardId` query params as a bridge to route params.
+- [x] Feature templates are isolated as future Vue component boundaries.
+- [x] Lightweight validation scripts exist in `tools/`.
+- [ ] Replace isolated feature templates with Vue components.
 - [ ] Replace global mutable mock stores with Pinia stores.
 - [ ] Add route guards for auth, membership, and board access.
 - [ ] Add component tests for board movement, drawer state, conflicts, and invites.
@@ -140,6 +143,7 @@ System/Auth:
 - Treat task drawer as a dialog-like surface with `aria-modal`, initial focus, Escape close, and return focus.
 - Preserve custom select keyboard handling for Enter, Escape, ArrowDown, and ArrowUp.
 - Add keyboard alternatives for drag-and-drop before production.
+- TODO for Vue keyboard DnD: implement a roving-tabindex `TaskCard` list per column, Space to pick up/drop, Arrow keys to choose target column/index, `aria-describedby` instructions, `aria-live` movement announcements, and Pinia-backed `moveCard({ cardId, toColumn, toIndex })` so pointer and keyboard paths share one action.
 - Ensure clickable cards and notifications have button-equivalent semantics and keyboard activation.
 - Verify color contrast against WCAG AA.
 
@@ -157,10 +161,19 @@ System/Auth:
 1. Create Vite/Vue app shell and route table.
 2. Move design tokens and global CSS into the Vue app without visual redesign.
 3. Port `mockStores` into Pinia stores with the same data shape.
-4. Port global components: `AppShell`, `TopBar`, `MainNav`, `Modal`, `Toast`, `Button`, `Avatar`, `Badge`, `Dropdown`.
-5. Port board-scoped routes and selected board lookup from route params.
+4. Port global components from `js/ui` and the shell strategy: `AppShell`, `TopBar`, `MainNav`, `Modal`, `Toast`, `Button`, `Avatar`, `Badge`, `Dropdown`.
+5. Replace `js/core/router.js` query bridge with Vue Router route params.
 6. Port board, columns, cards, drawer, comments, undo/redo, and conflict modal.
 7. Port members, settings, activity, search, notifications, offline, analytics, and AI views.
 8. Add tests around stores, route params, and component rendering.
 9. Integrate backend APIs.
 10. Integrate Supabase Realtime and RLS.
+
+## Static Validation Commands
+
+```bash
+node --check js/app.js
+node tools/audit-js.mjs
+node tools/audit-links.mjs
+node tools/audit-routes.mjs
+```

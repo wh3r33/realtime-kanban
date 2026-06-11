@@ -1,27 +1,66 @@
 :root {
+  /* colors */
   --paper: #f6f6f4;
   --ink: #10100f;
   --muted: #56534d;
   --soft-ink: rgba(16, 16, 15, 0.72);
   --line: rgba(16, 16, 15, 0.11);
+  --line-subtle: rgba(16, 16, 15, 0.08);
   --panel: rgba(255, 255, 255, 0.82);
   --panel-strong: rgba(255, 255, 255, 0.94);
-  --glass-strength: 0.88;
-  --blur-intensity: 14px;
+  --white: #fff;
   --accent: #2855ff;
   --acid: #d6ff00;
+
+  /* semantic states */
   --danger: #f05252;
   --success: #147d52;
   --warning: #9b5c00;
+  --focus-ring: 0 0 0 3px rgba(40, 85, 255, 0.22);
+
+  /* spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  /* radius */
+  --radius-pill: 999px;
+  --radius-round: 50%;
   --radius-sm: 12px;
   --radius-md: 14px;
   --radius-lg: 16px;
+
+  /* shadows */
   --shadow-soft: 0 4px 8px rgba(16, 16, 15, 0.08);
   --shadow-card: 0 3px 8px rgba(16, 16, 15, 0.07);
-  --focus-ring: 0 0 0 3px rgba(40, 85, 255, 0.22);
-  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --shadow-lift: 0 6px 8px rgba(16, 16, 15, 0.11);
+
+  /* z-index */
+  --z-noise: 1;
+  --z-content: 2;
+  --z-overlay: 12;
+  --z-topbar: 20;
+  --z-drawer: 30;
+  --z-modal: 80;
+  --z-toast: 40;
+
+  /* glass */
+  --glass-strength: 0.88;
+  --blur-intensity: 14px;
+  --glass-blur-lg: 18px;
+
+  /* typography */
   --font-body: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-faith: "Playfair Display", Georgia, "Times New Roman", serif;
+
+  /* motion */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 180ms;
+  --duration-base: 220ms;
+  --duration-slow: 320ms;
 }
 
 * {
@@ -220,12 +259,12 @@ svg {
   min-height: 58px;
   padding: 0 22px 0 26px;
   border: 1px solid rgba(16, 16, 15, 0.88);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--ink);
-  color: #fff;
+  color: var(--white);
   font-weight: 700;
   box-shadow: 0 6px 8px rgba(16, 16, 15, 0.16);
-  transition: transform 220ms var(--ease), box-shadow 220ms var(--ease), background 220ms var(--ease);
+  transition: transform var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease), background var(--duration-base) var(--ease);
 }
 
 .enter-button:hover {
@@ -249,21 +288,21 @@ svg {
   width: 132px;
   height: 132px;
   border: 1px solid rgba(16, 16, 15, 0.18);
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: rgba(245, 242, 236, 0.76);
   color: var(--ink);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.12em;
   text-align: center;
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(var(--glass-blur-lg));
 }
 
 .pulse-dot,
 .online-signal {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--acid);
   box-shadow: 0 0 0 5px rgba(214, 255, 0, 0.22);
 }
@@ -305,7 +344,7 @@ svg {
   grid-template-columns: repeat(4, 1fr);
   border-top: 1px solid rgba(16, 16, 15, 0.17);
   background: rgba(245, 242, 236, 0.88);
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(var(--glass-blur-lg));
 }
 
 .tech-bar div {
@@ -383,18 +422,26 @@ svg {
   backdrop-filter: blur(var(--blur-intensity)) saturate(1.08);
 }
 
-.topbar {
+/* Shell strategy for Vue migration:
+   app-shell/auth-shell/system-shell are page containers; topbar/glass-topbar
+   share the fixed glass navigation shell; nav-capsule/profile-button are the
+   stable child component boundaries. */
+.topbar,
+.glass-topbar {
   position: fixed;
   top: 18px;
   right: 18px;
   left: 18px;
-  z-index: 20;
+  z-index: var(--z-topbar);
+  min-height: 68px;
+  padding: 10px 12px 10px 18px;
+  border-radius: var(--radius-pill);
+}
+
+.topbar {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  min-height: 68px;
-  padding: 10px 12px 10px 18px;
-  border-radius: 999px;
 }
 
 .presence-cluster,
@@ -428,8 +475,8 @@ svg {
   height: 34px;
   margin-left: -8px;
   border: 2px solid var(--ring, var(--accent));
-  border-radius: 50%;
-  background: #fff;
+  border-radius: var(--radius-round);
+  background: var(--white);
   color: var(--ink);
   font-size: 11px;
   font-weight: 800;
@@ -444,7 +491,7 @@ svg {
   gap: 3px;
   padding: 5px;
   border: 1px solid rgba(16, 16, 15, 0.09);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(16, 16, 15, 0.055);
 }
 
@@ -458,16 +505,16 @@ svg {
 .nav-capsule button {
   min-width: 84px;
   padding: 11px 15px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: transparent;
   font-size: 13px;
   font-weight: 700;
-  transition: background 180ms var(--ease), color 180ms var(--ease);
+  transition: background var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
 }
 
 .nav-capsule button:hover,
 .nav-capsule button.active {
-  background: #fff;
+  background: var(--white);
   color: var(--accent);
 }
 
@@ -482,15 +529,15 @@ svg {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
-  transition: transform 180ms var(--ease), background 180ms var(--ease), border-color 180ms var(--ease);
+  border-radius: var(--radius-pill);
+  transition: transform var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease);
 }
 
 .ghost-button {
   gap: 8px;
   min-height: 44px;
   padding: 0 16px;
-  background: #fff;
+  background: var(--white);
   font-size: 13px;
   font-weight: 800;
 }
@@ -507,7 +554,7 @@ svg {
   height: 44px;
   border: 2px solid var(--accent);
   background: var(--ink);
-  color: #fff;
+  color: var(--white);
   font-size: 12px;
   font-weight: 800;
 }
@@ -525,7 +572,7 @@ svg {
   right: 11px;
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--danger);
 }
 
@@ -570,9 +617,9 @@ svg {
   justify-content: center;
   min-height: 22px;
   padding: 0 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
-  color: #fff;
+  color: var(--white);
   font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -666,7 +713,7 @@ svg {
 .column-count {
   min-width: 28px;
   padding: 5px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(16, 16, 15, 0.07);
   color: var(--muted);
   font-size: 11px;
@@ -690,7 +737,7 @@ svg {
   border-radius: var(--radius-lg);
   background: var(--panel-strong);
   box-shadow: var(--shadow-card);
-  transition: transform 180ms var(--ease), box-shadow 180ms var(--ease), border-color 180ms var(--ease), opacity 180ms var(--ease);
+  transition: transform var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease), opacity var(--duration-fast) var(--ease);
 }
 
 .task-card:hover {
@@ -754,8 +801,8 @@ svg {
   width: 28px;
   height: 28px;
   border: 2px solid var(--ring, var(--accent));
-  border-radius: 50%;
-  background: #fff;
+  border-radius: var(--radius-round);
+  background: var(--white);
   color: var(--ink);
   font-size: 10px;
   font-weight: 900;
@@ -763,7 +810,7 @@ svg {
 
 .live-line {
   height: 3px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: linear-gradient(90deg, var(--accent), var(--acid));
   transform-origin: left center;
   animation: liveLine 2300ms var(--ease) infinite;
@@ -879,14 +926,14 @@ svg {
   top: 104px;
   right: 18px;
   bottom: 18px;
-  z-index: 30;
+  z-index: var(--z-drawer);
   width: min(420px, calc(100vw - 36px));
   padding: 18px;
   border-radius: var(--radius-lg);
   transform: translateX(calc(100% + 28px));
   opacity: 0;
   pointer-events: none;
-  transition: transform 320ms var(--ease), opacity 240ms var(--ease);
+  transition: transform var(--duration-slow) var(--ease), opacity 240ms var(--ease);
 }
 
 .task-drawer.open {
@@ -985,7 +1032,7 @@ svg {
   position: fixed;
   right: 370px;
   bottom: 22px;
-  z-index: 40;
+  z-index: var(--z-toast);
   display: grid;
   gap: 10px;
   width: min(360px, calc(100vw - 36px));
@@ -999,8 +1046,8 @@ svg {
   border-radius: var(--radius-sm);
   background: var(--panel-strong);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(18px);
-  animation: toastIn 320ms var(--ease) both;
+  backdrop-filter: blur(var(--glass-blur-lg));
+  animation: toastIn var(--duration-slow) var(--ease) both;
   pointer-events: auto;
 }
 
@@ -1009,7 +1056,7 @@ svg {
   width: 9px;
   height: 9px;
   flex: 0 0 auto;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--accent);
   box-shadow: 0 0 0 5px rgba(40, 85, 255, 0.12);
 }
@@ -1120,7 +1167,7 @@ svg {
   width: auto;
   height: 38px;
   padding: 0 16px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .form-card,
@@ -1177,7 +1224,7 @@ svg {
   background: rgba(255, 255, 255, 0.88);
   color: var(--ink);
   outline: none;
-  transition: border-color 180ms var(--ease), box-shadow 180ms var(--ease), background 180ms var(--ease);
+  transition: border-color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
 }
 
 .input::placeholder {
@@ -1193,7 +1240,7 @@ svg {
 .input:focus {
   border-color: rgba(40, 85, 255, 0.5);
   box-shadow: var(--focus-ring);
-  background: #fff;
+  background: var(--white);
 }
 
 .button {
@@ -1204,12 +1251,12 @@ svg {
   width: fit-content;
   padding: 0 18px;
   border: 1px solid rgba(16, 16, 15, 0.1);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--ink);
   font-size: 13px;
   font-weight: 900;
   text-decoration: none;
-  transition: transform 180ms var(--ease), background 180ms var(--ease), border-color 180ms var(--ease), box-shadow 180ms var(--ease);
+  transition: transform var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease);
 }
 
 .button:hover,
@@ -1222,7 +1269,7 @@ svg {
 .button.primary,
 .button.dark {
   background: var(--ink);
-  color: #fff;
+  color: var(--white);
   box-shadow: 0 6px 14px rgba(16, 16, 15, 0.16);
 }
 
@@ -1232,7 +1279,7 @@ svg {
 }
 
 .button.secondary {
-  background: #fff;
+  background: var(--white);
 }
 
 .button:hover {
@@ -1250,7 +1297,7 @@ svg {
 
 .button.danger {
   background: var(--danger);
-  color: #fff;
+  color: var(--white);
 }
 
 .form-links,
@@ -1290,18 +1337,10 @@ a {
 }
 
 .glass-topbar {
-  position: fixed;
-  top: 18px;
-  right: 18px;
-  left: 18px;
-  z-index: 20;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 16px;
-  min-height: 68px;
-  padding: 10px 12px 10px 18px;
-  border-radius: 999px;
   border: 1px solid rgba(16, 16, 15, 0.09);
   background: rgba(255, 255, 255, var(--glass-strength));
   box-shadow: var(--shadow-soft);
@@ -1311,18 +1350,18 @@ a {
 .nav-capsule a {
   min-width: 78px;
   padding: 11px 15px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--ink);
   font-size: 13px;
   font-weight: 800;
   text-align: center;
   text-decoration: none;
-  transition: background 180ms var(--ease), color 180ms var(--ease);
+  transition: background var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
 }
 
 .nav-capsule a:hover,
 .nav-capsule a.active {
-  background: #fff;
+  background: var(--white);
   color: var(--accent);
 }
 
@@ -1370,7 +1409,7 @@ a {
   gap: 16px;
   min-height: 190px;
   cursor: pointer;
-  transition: transform 180ms var(--ease), border-color 180ms var(--ease), box-shadow 180ms var(--ease);
+  transition: transform var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease);
 }
 
 .board-card:hover {
@@ -1454,10 +1493,10 @@ a {
   min-height: 40px;
   padding: 0 14px;
   border: 1px solid rgba(16, 16, 15, 0.08);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.68);
   font-weight: 850;
-  transition: background 180ms var(--ease), border-color 180ms var(--ease), color 180ms var(--ease);
+  transition: background var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
 }
 
 .filter-bar button:hover,
@@ -1469,7 +1508,7 @@ a {
 .filter-bar button.active,
 .segmented button.active {
   background: var(--ink);
-  color: #fff;
+  color: var(--white);
 }
 
 .share-box {
@@ -1560,7 +1599,7 @@ a {
   flex: 0 0 auto;
   padding: 8px 10px;
   border: 1px solid rgba(40, 85, 255, 0.14);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(40, 85, 255, 0.06);
   color: var(--soft-ink);
   font-size: 12px;
@@ -1581,7 +1620,7 @@ a {
   display: grid;
   gap: 12px;
   padding: 14px;
-  transition: transform 180ms var(--ease), border-color 180ms var(--ease), box-shadow 180ms var(--ease);
+  transition: transform var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease);
 }
 
 .member-card-enhanced:hover {
@@ -1603,7 +1642,7 @@ a {
   width: 46px;
   height: 46px;
   border: 1px solid rgba(16, 16, 15, 0.12);
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background:
     radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.88), transparent 42%),
     rgba(40, 85, 255, 0.08);
@@ -1613,7 +1652,7 @@ a {
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--role-color, var(--accent)) 22%, transparent),
     inset 0 0 0 1px rgba(255, 255, 255, 0.82);
-  transition: transform 180ms var(--ease), box-shadow 180ms var(--ease);
+  transition: transform var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease);
 }
 
 .member-card-enhanced:hover .member-avatar {
@@ -1628,7 +1667,7 @@ a {
   width: 9px;
   height: 9px;
   border: 2px solid #fff;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--status-color, var(--success));
 }
 
@@ -1727,8 +1766,8 @@ a {
   min-height: 22px;
   padding: 0 9px;
   border: 1px solid transparent;
-  border-radius: 999px;
-  color: #fff;
+  border-radius: var(--radius-pill);
+  color: var(--white);
   font-size: 10px;
   font-weight: 950;
   letter-spacing: 0.08em;
@@ -1752,13 +1791,13 @@ a {
 
 .role-action {
   cursor: pointer;
-  transition: transform 180ms var(--ease), background 180ms var(--ease);
+  transition: transform var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
 }
 
 .role-action:hover {
   transform: translateY(-1px);
   background: var(--accent);
-  color: #fff;
+  color: var(--white);
 }
 
 .settings-section-card,
@@ -1916,13 +1955,13 @@ a {
   color: var(--ink);
   text-align: left;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
-  transition: border-color 180ms var(--ease), box-shadow 180ms var(--ease), background 180ms var(--ease);
+  transition: border-color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
 }
 
 .custom-select-trigger:hover,
 .custom-select.open .custom-select-trigger {
   border-color: rgba(40, 85, 255, 0.34);
-  background: #fff;
+  background: var(--white);
   box-shadow: var(--focus-ring);
 }
 
@@ -1956,7 +1995,7 @@ a {
 
 .select-chevron {
   flex: 0 0 auto;
-  transition: transform 220ms var(--ease);
+  transition: transform var(--duration-base) var(--ease);
 }
 
 .custom-select.open .select-chevron {
@@ -1968,7 +2007,7 @@ a {
   right: 0;
   left: 0;
   top: calc(100% + 8px);
-  z-index: 30;
+  z-index: var(--z-drawer);
   display: grid;
   gap: 6px;
   padding: 8px;
@@ -1976,12 +2015,12 @@ a {
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 18px 34px rgba(16, 16, 15, 0.14);
-  backdrop-filter: blur(18px) saturate(1.08);
+  backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.08);
   opacity: 0;
   transform: translateY(-6px) scale(0.98);
   transform-origin: top center;
   pointer-events: none;
-  transition: opacity 180ms var(--ease), transform 180ms var(--ease);
+  transition: opacity var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease);
 }
 
 .custom-select.open .custom-select-menu {
@@ -2060,7 +2099,7 @@ a {
 .chart-row i {
   display: block;
   height: 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(16, 16, 15, 0.08);
   overflow: hidden;
 }
@@ -2095,7 +2134,7 @@ a {
 .donut-chart {
   width: 180px;
   aspect-ratio: 1;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: conic-gradient(var(--accent) 0 28%, var(--acid) 28% 46%, var(--ink) 46% 70%, var(--danger) 70% 84%, rgba(16, 16, 15, 0.16) 84%);
   box-shadow: inset 0 0 0 38px rgba(255, 255, 255, 0.86);
 }
@@ -2121,7 +2160,7 @@ a {
 }
 
 .result-card {
-  transition: transform 180ms var(--ease), opacity 180ms var(--ease);
+  transition: transform var(--duration-fast) var(--ease), opacity var(--duration-fast) var(--ease);
 }
 
 .notification-list {
@@ -2138,7 +2177,7 @@ a {
   width: 9px;
   height: 9px;
   margin-top: 6px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--accent);
   box-shadow: 0 0 0 5px rgba(40, 85, 255, 0.12);
 }
@@ -2166,7 +2205,7 @@ a {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: var(--z-modal);
   display: grid;
   place-items: center;
   padding: 20px;
@@ -2258,9 +2297,9 @@ a {
 .toast button {
   margin-left: auto;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--ink);
-  color: #fff;
+  color: var(--white);
   font-size: 11px;
   font-weight: 900;
   padding: 6px 10px;
@@ -2300,7 +2339,7 @@ a {
 .loading-orbit span {
   width: 12px;
   height: 12px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--accent);
   animation: liveLine 1000ms var(--ease) infinite;
 }

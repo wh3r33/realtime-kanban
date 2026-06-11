@@ -2,6 +2,63 @@
 
 This prototype remains HTML, CSS, and vanilla JavaScript. It is structured to make the next migration step to Vue 3, Pinia, and Vue Router predictable without changing the current design language.
 
+## Current Vanilla Module Architecture
+
+```text
+js/
+  data/
+    mockStores.js          mock state, selectors, badge helpers
+  core/
+    router.js              getBoardId/getCurrentRoute/boardScopedHref/syncBoardRouteLinks
+    dom.js                 focus utilities, focus trap, toast live region
+    events.js              global Escape close and focus trap dispatcher
+  ui/
+    toast.js               aria-live toasts
+    modal.js               dialog semantics, focus return
+    drawer.js              drawer dialog shell, focus return
+    dropdown.js            custom select keyboard support
+  features/
+    board.js               board view, columns, DnD, realtime mock events
+    tasks.js               task cards, drawer open, undo/redo movement
+    comments.js            task drawer comments
+    activity.js            activity feeds, sync state, role toggles
+    members.js             member/settings helpers shared by static pages
+    settings.js            settings entry re-export
+    search.js              search filters and result templates
+    notifications.js       notification list and keyboard activation
+    offline.js             offline queue and retry simulation
+    invites.js             invite modal/list lifecycle
+    conflicts.js           conflict modal and resolution
+    ai.js                  AI assistant checklist mock
+  app.js                   static composition root
+```
+
+`script.js` is not the active runtime anymore. All HTML files load `js/app.js` as `type="module"`.
+
+## Template Boundaries
+
+The prototype still uses `innerHTML`, but direct coupling is now isolated to feature modules. These functions are the intended Vue component extraction points:
+
+- `renderTaskCardTemplate(task)` -> `TaskCard.vue`
+- `renderBoardColumnTemplate(column, columnTasks)` -> `BoardColumn.vue`
+- `renderActivityItemTemplate(event)` -> `ActivityItem.vue`
+- `renderNotificationTemplate(notification)` -> `NotificationItem.vue`
+- `renderSearchResultTemplate(result)` -> `SearchResultCard.vue`
+
+Other feature-local templates, such as invite rows, offline queue items, conflict preview, comments, and task drawer content, should be migrated the same way.
+
+## Shell and Navigation Pattern
+
+Static pages use one class strategy:
+
+- Page containers: `app-shell`, `auth-shell`, `system-shell`, with `workspace-screen` retained for the welcome-to-workspace demo.
+- Top bars: `topbar glass` for the dense board/workspace demo and `glass-topbar` for static app pages. Shared positioning, radius, z-index, and fixed shell behavior are centralized in `styles.css`.
+- Navigation: `nav-capsule` for both button and anchor nav.
+- Identity/action: `profile-button` and `top-actions`.
+- Board scoped nav: links use `data-board-route` and are synchronized by `syncBoardRouteLinks()`.
+
+This preserves the current UI while giving Vue clear `AppShell`, `TopBar`, `MainNav`, `ProfileButton`, and `BoardScopedNav` boundaries.
+
 ## Component Tree
 
 ```text
@@ -91,6 +148,14 @@ App
 ```
 
 The current static pages map cleanly. Board-scoped pages use `?boardId=<id>` as a static prototype bridge so Vue Router can later replace it with `/boards/:boardId` route params.
+
+The mapping is centralized in `js/core/router.js`:
+
+- `getBoardId()` reads `?boardId=` today and should become `route.params.boardId`.
+- `getCurrentRoute()` reads `body[data-page]`, `body[data-route]`, path, query, and derived params.
+- `boardScopedHref()` creates static file links today and should be removed when `<RouterLink>` receives named routes.
+- `syncBoardRouteLinks()` updates static board links today and becomes unnecessary once route params are inherited by nested routes.
+- `readRouteMetadata()` supports audits and future route table generation.
 
 ## Future Pinia Stores
 
