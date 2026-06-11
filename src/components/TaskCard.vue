@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { badgeClass } from "../utils/badges";
+import { useCardsStore } from "../stores/cards";
 import { useMembersStore } from "../stores/members";
 
 const props = defineProps({
@@ -14,15 +15,19 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(["open", "drag-start", "move-left", "move-right"]);
+const emit = defineEmits(["open", "drag-start", "drag-end", "drop-on", "move-left", "move-right"]);
+const cardsStore = useCardsStore();
 const membersStore = useMembersStore();
 const assignee = computed(() => membersStore.memberById(props.task.assigneeId));
 const editor = computed(() => membersStore.editorForCard(props.task.id));
 const lock = computed(() => membersStore.lockForCard(props.task.id));
 const labels = computed(() => Array.from(new Set([...(props.task.labels || []), props.task.status?.toUpperCase()].filter(Boolean))));
+const checklistSummary = computed(() => cardsStore.checklistSummaryForCard(props.task.id));
+const checklistPreview = computed(() => checklistSummary.value.open.slice(0, 2));
 const stateClass = computed(() => ({
   "conflict-state": props.task.status === "conflict",
-  "locked-state": props.task.status === "locked"
+  "locked-state": props.task.status === "locked",
+  pending: props.task.pending
 }));
 </script>
 
@@ -38,6 +43,9 @@ const stateClass = computed(() => ({
     @keydown.enter.prevent="emit('open', task.id)"
     @keydown.space.prevent="emit('open', task.id)"
     @dragstart="canMutate && emit('drag-start', task.id)"
+    @dragend="emit('drag-end')"
+    @dragover.prevent.stop
+    @drop.prevent.stop="emit('drop-on', { taskId: task.id, event: $event })"
   >
     <div class="card-badges">
       <span v-for="label in labels" :key="label" class="status-badge" :class="badgeClass(label)">{{ label }}</span>
@@ -51,6 +59,15 @@ const stateClass = computed(() => ({
     </div>
     <div v-if="lock" class="ownership-line locked">
       <strong>Locked by {{ membersStore.memberById(lock.userId).name }}</strong> · {{ lock.duration }}
+    </div>
+    <div v-if="checklistSummary.total" class="card-checklist-preview" aria-label="Checklist preview">
+      <div class="checklist-count-row">
+        <strong>{{ checklistSummary.total }} subtasks</strong>
+        <span>{{ checklistSummary.completed }}/{{ checklistSummary.total }} done</span>
+      </div>
+      <ul>
+        <li v-for="item in checklistPreview" :key="item.id">{{ item.title }}</li>
+      </ul>
     </div>
     <div class="live-line" aria-hidden="true"></div>
     <div class="card-meta">

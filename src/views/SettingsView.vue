@@ -134,7 +134,7 @@ function copyShareLink() {
         </div>
         <div class="system-status-card">
           <span>Presence</span>
-          <strong>Presence not connected</strong>
+          <strong>{{ membersStore.presenceConnected ? `${membersStore.onlineMembers.length} online` : "Connecting to Supabase presence" }}</strong>
         </div>
       </div>
       <label>

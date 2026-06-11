@@ -1,4 +1,13 @@
-import { isSupabaseConfigured, isSupabaseSetupError, missingSupabaseEnvMessage, supabase, supabaseSetupError, warnSupabaseError } from "./supabaseClient";
+import {
+  isMissingSupabaseSchemaError,
+  isSupabaseConfigured,
+  isSupabaseSetupError,
+  migrationRequiredError,
+  missingSupabaseEnvMessage,
+  supabase,
+  supabaseSetupError,
+  warnSupabaseError
+} from "./supabaseClient";
 import { createActivityLog } from "./activityRepository";
 import { getCurrentUser } from "./supabaseClient";
 
@@ -8,6 +17,7 @@ function requireClient() {
 }
 
 function mapCard(row) {
+  if (!row) return null;
   return {
     id: row.id,
     boardId: row.board_id,
@@ -20,12 +30,18 @@ function mapCard(row) {
     position: row.position ?? 0,
     status: row.status || "active",
     labels: row.labels || [],
+    aiPriority: row.ai_priority ?? null,
+    aiPriorityReason: row.ai_priority_reason || "",
     history: [],
     updatedAt: row.updated_at ? new Date(row.updated_at).toLocaleString() : "",
     version: row.version || 1,
     createdAt: row.created_at,
     deletedAt: row.deleted_at || null
   };
+}
+
+export function mapCardRecord(row) {
+  return mapCard(row);
 }
 
 function normalizePayload(payload) {
@@ -46,7 +62,17 @@ export async function createCard(boardId, columnId, payload) {
   if (error) return { data: null, error };
   const { data: user, error: userError } = await getCurrentUser();
   if (userError || !user) return { data: null, error: userError || new Error("No authenticated Supabase user.") };
-  const { count } = await client.from("cards").select("id", { count: "exact", head: true }).eq("board_id", boardId).eq("column_id", columnId).is("deleted_at", null);
+  let count = 0;
+  const countResult = await client.from("cards").select("id", { count: "exact", head: true }).eq("board_id", boardId).eq("column_id", columnId).is("deleted_at", null);
+  if (isMissingSupabaseSchemaError(countResult.error)) {
+    warnSupabaseError("cards count retrying without deleted_at", countResult.error);
+    const legacyCount = await client.from("cards").select("id", { count: "exact", head: true }).eq("board_id", boardId).eq("column_id", columnId);
+    warnSupabaseError("legacy cards count failed", legacyCount.error);
+    count = legacyCount.count ?? 0;
+  } else {
+    warnSupabaseError("cards count failed", countResult.error);
+    count = countResult.count ?? 0;
+  }
   const row = {
     board_id: boardId,
     column_id: columnId,
@@ -64,57 +90,141 @@ export async function createCard(boardId, columnId, payload) {
   return { data: data ? mapCard(data) : null, error: isSupabaseSetupError(insertError) ? supabaseSetupError("Card could not be created in Supabase") : insertError };
 }
 
-export async function updateCard(cardId, payload) {
+async function reloadCard(client, cardId) {
+  const { data, error } = await client.from("cards").select("*, columns(title)").eq("id", cardId).maybeSingle();
+  warnSupabaseError("card conflict reload failed", error);
+  return { data: data ? mapCard(data) : null, error };
+}
+
+function conflictResult(remote) {
+  const error = new Error("Конфликт версии: карточка уже изменена другим пользователем.");
+  error.code = "CARD_VERSION_CONFLICT";
+  return { data: null, error, conflict: true, remote };
+}
+
+export async function updateCard(cardId, payload, expectedVersion) {
   const { client, error } = requireClient();
   if (error) return { data: null, error };
   const { data: before, error: beforeError } = await client.from("cards").select("*").eq("id", cardId).maybeSingle();
   warnSupabaseError("card lookup before update failed", beforeError);
   if (beforeError || !before) return { data: null, error: isSupabaseSetupError(beforeError) ? supabaseSetupError("Card could not be loaded from Supabase before update") : beforeError || new Error("Card was not found.") };
   const patch = normalizePayload(payload);
-  const { data, error: updateError } = await client.from("cards").update(patch).eq("id", cardId).select("*, columns(title)").maybeSingle();
+  let query = client.from("cards").update(patch).eq("id", cardId);
+  if (expectedVersion) query = query.eq("version", expectedVersion);
+  const { data, error: updateError } = await query.select("*, columns(title)").maybeSingle();
   warnSupabaseError("cards update failed", updateError);
-  if (!updateError && !data) return { data: null, error: new Error("Card update returned no row.") };
+  if (!updateError && !data) {
+    const latest = await reloadCard(client, cardId);
+    return conflictResult(latest.data);
+  }
   if (!updateError && data) await createActivityLog(data.board_id, "card_updated", "card", cardId, before, data);
   return { data: data ? mapCard(data) : null, error: isSupabaseSetupError(updateError) ? supabaseSetupError("Card could not be updated in Supabase") : updateError };
 }
 
-export async function deleteCard(cardId) {
+export async function deleteCard(cardId, expectedVersion) {
   const { client, error } = requireClient();
   if (error) return { data: null, error };
   const { data: before, error: beforeError } = await client.from("cards").select("*").eq("id", cardId).maybeSingle();
   warnSupabaseError("card lookup before delete failed", beforeError);
   if (beforeError || !before) return { data: null, error: isSupabaseSetupError(beforeError) ? supabaseSetupError("Card could not be loaded from Supabase before delete") : beforeError || new Error("Card was not found.") };
-  const { data, error: deleteError } = await client
+  let query = client
     .from("cards")
     .update({ deleted_at: new Date().toISOString(), status: "deleted" })
-    .eq("id", cardId)
+    .eq("id", cardId);
+  if (expectedVersion) query = query.eq("version", expectedVersion);
+  const { data, error: deleteError } = await query
     .select("*, columns(title)")
     .maybeSingle();
   warnSupabaseError("cards delete failed", deleteError);
+  if (isMissingSupabaseSchemaError(deleteError)) {
+    console.warn("[Supabase] cards.deleted_at is unavailable; deleting card permanently and disabling restore for this action.");
+    let legacyQuery = client.from("cards").delete().eq("id", cardId);
+    if (expectedVersion) legacyQuery = legacyQuery.eq("version", expectedVersion);
+    const { data: deleted, error: legacyDeleteError } = await legacyQuery.select("*, columns(title)").maybeSingle();
+    warnSupabaseError("legacy cards delete failed", legacyDeleteError);
+    if (!legacyDeleteError) await createActivityLog(before.board_id, "card_deleted", "card", cardId, before, deleted || before);
+    return {
+      data: deleted ? mapCard(deleted) : mapCard(before),
+      error: isSupabaseSetupError(legacyDeleteError) ? supabaseSetupError("Card could not be deleted from Supabase") : legacyDeleteError,
+      warning: "Card deleted permanently. Undo restore requires database migration.",
+      restorable: false
+    };
+  }
+  if (!deleteError && !data) {
+    const latest = await reloadCard(client, cardId);
+    return conflictResult(latest.data);
+  }
   if (!deleteError && data) await createActivityLog(before.board_id, "card_deleted", "card", cardId, before, data);
-  return { data: data ? mapCard(data) : mapCard(before), error: isSupabaseSetupError(deleteError) ? supabaseSetupError("Card could not be deleted from Supabase") : deleteError };
+  return { data: data ? mapCard(data) : mapCard(before), error: isSupabaseSetupError(deleteError) ? supabaseSetupError("Card could not be deleted from Supabase") : deleteError, restorable: true };
 }
 
-export async function moveCard(cardId, columnId, position) {
+export async function moveCard(cardId, columnId, position, expectedVersion) {
   const { client, error } = requireClient();
   if (error) return { data: null, error };
   const { data: moved, error: rpcError } = await client.rpc("move_card_safely", {
     move_card_id: cardId,
     target_column_id: columnId,
-    target_position: position
+    target_position: position,
+    expected_version: expectedVersion || null
   });
   warnSupabaseError("cards move rpc failed", rpcError);
+  if (rpcError?.code === "CARD_VERSION_CONFLICT" || /version conflict|конфликт/i.test(rpcError?.message || "")) {
+    const latest = await reloadCard(client, cardId);
+    return conflictResult(latest.data);
+  }
+  if (isMissingSupabaseSchemaError(rpcError)) {
+    console.warn("[Supabase] move_card_safely RPC is unavailable; falling back to direct card update.");
+    let query = client
+      .from("cards")
+      .update({ column_id: columnId, position, updated_at: new Date().toISOString() })
+      .eq("id", cardId);
+    if (expectedVersion) query = query.eq("version", expectedVersion);
+    const { data, error: updateError } = await query
+      .select("*, columns(title)")
+      .maybeSingle();
+    warnSupabaseError("legacy cards move update failed", updateError);
+    if (isMissingSupabaseSchemaError(updateError)) {
+      let legacyQuery = client
+        .from("cards")
+        .update({ column_id: columnId, position })
+        .eq("id", cardId);
+      if (expectedVersion) legacyQuery = legacyQuery.eq("version", expectedVersion);
+      const legacyUpdate = await legacyQuery
+        .select("*, columns(title)")
+        .maybeSingle();
+      warnSupabaseError("legacy cards move update without updated_at failed", legacyUpdate.error);
+      if (legacyUpdate.error) {
+        return { data: null, error: isSupabaseSetupError(legacyUpdate.error) ? supabaseSetupError("Card could not be moved in Supabase") : legacyUpdate.error };
+      }
+      if (!legacyUpdate.data) {
+        const latest = await reloadCard(client, cardId);
+        return conflictResult(latest.data);
+      }
+      return { data: mapCard(legacyUpdate.data), error: null, warning: "Safe move RPC unavailable; used direct update fallback." };
+    }
+    if (updateError) return { data: null, error: isSupabaseSetupError(updateError) ? supabaseSetupError("Card could not be moved in Supabase") : updateError };
+    if (!data) {
+      const latest = await reloadCard(client, cardId);
+      return conflictResult(latest.data);
+    }
+    return { data: mapCard(data), error: null, warning: "Safe move RPC unavailable; used direct update fallback." };
+  }
   if (rpcError || !moved) return { data: null, error: isSupabaseSetupError(rpcError) ? supabaseSetupError("Card could not be moved in Supabase") : rpcError || new Error("Card move returned no row.") };
   const { data, error: reloadError } = await client.from("cards").select("*, columns(title)").eq("id", cardId).maybeSingle();
   warnSupabaseError("cards move reload failed", reloadError);
   return { data: data ? mapCard(data) : mapCard(moved), error: isSupabaseSetupError(reloadError) ? supabaseSetupError("Moved card could not be reloaded from Supabase") : reloadError };
 }
 
-export async function restoreCard(cardId) {
+export async function restoreCard(cardId, expectedVersion) {
   const { client, error } = requireClient();
   if (error) return { data: null, error };
-  const { data: restored, error: rpcError } = await client.rpc("restore_card", { restore_card_id: cardId });
+  const { data: restored, error: rpcError } = await client.rpc("restore_card", { restore_card_id: cardId, expected_version: expectedVersion || null });
   warnSupabaseError("cards restore rpc failed", rpcError);
+  if (rpcError?.code === "CARD_VERSION_CONFLICT" || /CARD_VERSION_CONFLICT|version conflict|конфликт/i.test(rpcError?.message || "")) {
+    const latest = await reloadCard(client, cardId);
+    return conflictResult(latest.data);
+  }
+  if (isMissingSupabaseSchemaError(rpcError)) return { data: null, error: migrationRequiredError("Card restore") };
   if (rpcError || !restored) return { data: null, error: isSupabaseSetupError(rpcError) ? supabaseSetupError("Card could not be restored in Supabase") : rpcError || new Error("Card restore returned no row.") };
   const { data, error: reloadError } = await client.from("cards").select("*, columns(title)").eq("id", cardId).maybeSingle();
   warnSupabaseError("cards restore reload failed", reloadError);

@@ -15,14 +15,28 @@ const membersStore = useMembersStore();
 const uiStore = useUiStore();
 const draggedTaskId = ref(null);
 const liveMessage = ref("");
-const newCard = ref({ title: "", description: "", columnId: "", assigneeId: null });
+const newCard = ref({ title: "", description: "", columnId: "", assigneeId: null, labelsText: "" });
 const pageLoading = ref(false);
+const filters = ref({ query: "", assigneeId: "", label: "", status: "" });
 
 const currentBoardCards = computed(() => cardsStore.cards.filter((task) => task.boardId === boardsStore.selectedBoardId));
+const availableLabels = computed(() => Array.from(new Set(currentBoardCards.value.flatMap((card) => card.labels || []))).sort());
+const filteredBoardCards = computed(() => {
+  const query = filters.value.query.trim().toLowerCase();
+  return currentBoardCards.value.filter((card) => {
+    const matchesQuery = !query || `${card.title} ${card.description}`.toLowerCase().includes(query);
+    const matchesAssignee = !filters.value.assigneeId || card.assigneeId === filters.value.assigneeId;
+    const matchesLabel = !filters.value.label || (card.labels || []).includes(filters.value.label);
+    const matchesStatus = !filters.value.status || card.status === filters.value.status;
+    return matchesQuery && matchesAssignee && matchesLabel && matchesStatus;
+  });
+});
 const cardsByColumn = computed(() =>
   boardsStore.columns.map((column) => ({
     ...column,
-    cards: cardsStore.cardsForColumn(boardsStore.selectedBoardId, column.id)
+    cards: filteredBoardCards.value
+      .filter((card) => card.columnId === column.id)
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.title.localeCompare(b.title))
   }))
 );
 const canMutate = computed(() => authStore.canMutateCards);
@@ -60,6 +74,10 @@ function openTask(taskId) {
   cardsStore.selectCard(taskId);
 }
 
+function labelsFromText(value) {
+  return Array.from(new Set(String(value || "").split(",").map((item) => item.trim()).filter(Boolean)));
+}
+
 async function moveTask(columnId, toIndex = Number.POSITIVE_INFINITY) {
   if (!canMutate.value) {
     draggedTaskId.value = null;
@@ -70,6 +88,14 @@ async function moveTask(columnId, toIndex = Number.POSITIVE_INFINITY) {
   draggedTaskId.value = null;
   if (action?.error === "viewer") {
     uiStore.showToast("Viewer role can view cards only");
+    return;
+  }
+  if (action?.error === "conflict") {
+    uiStore.showToast("Конфликт версии: карточка уже изменена другим пользователем");
+    return;
+  }
+  if (action?.error) {
+    uiStore.showToast(action.error.message || "Ошибка перемещения карточки");
     return;
   }
   if (!action) return;
@@ -93,15 +119,31 @@ async function moveTaskByKeyboard(task, direction) {
 async function addCard() {
   const result = await cardsStore.createCard({
     ...newCard.value,
-    boardId: boardsStore.selectedBoardId
+    boardId: boardsStore.selectedBoardId,
+    labels: labelsFromText(newCard.value.labelsText)
   });
   if (result.error === "viewer") {
     uiStore.showToast("Viewer role cannot create cards");
     return;
   }
+  if (result.error) {
+    uiStore.showToast(result.error.message || "Ошибка создания карточки");
+    return;
+  }
   if (!result.card) return;
-  uiStore.showToast(`${result.card.title} added`);
-  newCard.value = { title: "", description: "", columnId: boardsStore.columns[0]?.id || "", assigneeId: authStore.currentUserId };
+  uiStore.showToast(result.queued ? "Карточка добавлена в очередь офлайн" : `${result.card.title} added`);
+  newCard.value = { title: "", description: "", columnId: boardsStore.columns[0]?.id || "", assigneeId: authStore.currentUserId, labelsText: "" };
+}
+
+function dropOnTask(column, task, event) {
+  const rect = event.currentTarget.getBoundingClientRect();
+  const after = event.clientY > rect.top + rect.height / 2;
+  const visibleCards = cardsByColumn.value.find((item) => item.id === column.id)?.cards || [];
+  const taskIndex = visibleCards.findIndex((card) => card.id === task.id);
+  const draggedIndex = visibleCards.findIndex((card) => card.id === draggedTaskId.value);
+  let targetIndex = taskIndex + (after ? 1 : 0);
+  if (column.id === cardsStore.cardById(draggedTaskId.value)?.columnId && draggedIndex >= 0 && draggedIndex < targetIndex) targetIndex -= 1;
+  moveTask(column.id, targetIndex);
 }
 
 async function setupColumns() {
@@ -117,12 +159,27 @@ onMounted(async () => {
   await authStore.initialize();
   await loadBoardData(boardsStore.selectedBoardId);
   newCard.value.assigneeId = authStore.currentUserId;
+  cardsStore.setOnlineStatus(typeof navigator === "undefined" ? true : navigator.onLine);
+  window.addEventListener("online", handleOnline);
+  window.addEventListener("offline", handleOffline);
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener("online", handleOnline);
+  window.removeEventListener("offline", handleOffline);
   cardsStore.realtime.untrack?.();
   cardsStore.realtime.unsubscribe?.();
 });
+
+function handleOnline() {
+  cardsStore.setOnlineStatus(true);
+  uiStore.showToast("Соединение восстановлено. Очередь синхронизируется.");
+}
+
+function handleOffline() {
+  cardsStore.setOnlineStatus(false);
+  uiStore.showToast("Нет соединения. Новые действия будут поставлены в очередь.");
+}
 </script>
 
 <template>
@@ -154,6 +211,27 @@ onBeforeUnmount(() => {
     <button class="button secondary" type="button" :disabled="!canMutate" @click="setupColumns">Create default columns</button>
   </section>
 
+  <section v-if="selectedBoard && boardsStore.columns.length" class="board-filters panel compact-panel">
+    <input v-model="filters.query" class="input" type="search" placeholder="Поиск по карточкам" />
+    <select v-model="filters.assigneeId" class="input">
+      <option value="">Все исполнители</option>
+      <option v-for="member in membersStore.members" :key="member.id" :value="member.id">{{ member.name }}</option>
+    </select>
+    <select v-model="filters.label" class="input">
+      <option value="">Все метки</option>
+      <option v-for="label in availableLabels" :key="label" :value="label">{{ label }}</option>
+    </select>
+    <select v-model="filters.status" class="input">
+      <option value="">Все статусы</option>
+      <option value="active">active</option>
+      <option value="blocked">blocked</option>
+      <option value="done">done</option>
+    </select>
+    <span class="status-badge" :class="cardsStore.offline.isOnline ? 'synced' : 'offline'">
+      {{ cardsStore.offline.isOnline ? 'ONLINE' : `${cardsStore.offline.queue.length} OFFLINE` }}
+    </span>
+  </section>
+
   <form v-if="selectedBoard && boardsStore.columns.length" class="quick-card-form" data-component="CreateCardForm" @submit.prevent="addCard">
     <label>
       Title
@@ -168,6 +246,17 @@ onBeforeUnmount(() => {
       <select v-model="newCard.columnId" class="input" :disabled="!canMutate">
         <option v-for="column in boardsStore.columns" :key="column.id" :value="column.id">{{ column.title }}</option>
       </select>
+    </label>
+    <label>
+      Assignee
+      <select v-model="newCard.assigneeId" class="input" :disabled="!canMutate">
+        <option :value="null">Unassigned</option>
+        <option v-for="member in membersStore.members" :key="member.id" :value="member.id">{{ member.name }}</option>
+      </select>
+    </label>
+    <label>
+      Labels
+      <input v-model="newCard.labelsText" class="input" :disabled="!canMutate" placeholder="frontend, urgent" />
     </label>
     <button class="button primary" type="submit" :disabled="!canMutate">Add card</button>
     <span v-if="!canMutate" class="permission-note">Viewer role is read-only. Card actions are disabled.</span>
@@ -195,6 +284,8 @@ onBeforeUnmount(() => {
           :can-mutate="canMutate"
           @open="openTask"
           @drag-start="draggedTaskId = $event"
+          @drag-end="draggedTaskId = null"
+          @drop-on="dropOnTask(column, task, $event.event)"
           @move-left="moveTaskByKeyboard(task, -1)"
           @move-right="moveTaskByKeyboard(task, 1)"
         />

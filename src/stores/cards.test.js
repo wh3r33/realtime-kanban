@@ -71,7 +71,7 @@ describe("cards store movement and undo", () => {
 
     const result = await cards.moveTask("card-1", "col-2", 0);
 
-    expect(mocks.moveCard).toHaveBeenCalledWith("card-1", "col-2", 0);
+    expect(mocks.moveCard).toHaveBeenCalledWith("card-1", "col-2", 0, 1);
     expect(result.to).toBe("Done");
     expect(cards.cardById("card-1").columnId).toBe("col-2");
     expect(cards.undoHistory).toHaveLength(1);
@@ -88,7 +88,7 @@ describe("cards store movement and undo", () => {
     const action = await cards.undoLastAction();
 
     expect(action.type).toBe("move");
-    expect(mocks.moveCard).toHaveBeenLastCalledWith("card-1", "col-1", 0);
+    expect(mocks.moveCard).toHaveBeenLastCalledWith("card-1", "col-1", 0, 2);
     expect(cards.cardById("card-1").columnId).toBe("col-1");
     expect(cards.undoHistory).toHaveLength(0);
     expect(cards.redoHistory).toHaveLength(1);

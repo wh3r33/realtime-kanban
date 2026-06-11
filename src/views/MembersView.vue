@@ -13,6 +13,7 @@ const inviteForm = reactive({ email: "", role: "viewer" });
 
 const selectedBoard = computed(() => boardsStore.selectedBoard);
 const canManage = computed(() => authStore.canManageWorkspace);
+const canInvite = computed(() => canManage.value && membersStore.invitationsSupported);
 const roleDescriptions = {
   owner: "Full board control",
   editor: "Create, edit, and move cards",
@@ -27,7 +28,7 @@ async function inviteMember() {
   }
   inviteForm.email = "";
   inviteForm.role = "viewer";
-  uiStore.showToast(`Invite created for ${result.invitation.email}`);
+  uiStore.showToast(result.duplicate ? `Приглашение для ${result.invitation.email} уже существует` : `Invite created for ${result.invitation.email}`);
 }
 
 async function toggleRole(member) {
@@ -118,7 +119,7 @@ onMounted(async () => {
       </article>
       <div v-if="membersStore.members.length <= 1" class="empty-state informative">
         <strong>No collaborators yet</strong>
-        <span>Only real board_members rows are shown. Invite flow is not connected yet.</span>
+        <span>Only real board_members rows are shown. Use owner-only invitations to add collaborators.</span>
       </div>
     </div>
 
@@ -139,23 +140,27 @@ onMounted(async () => {
       <section class="settings-section-card">
         <div class="section-title-row">
           <p class="kicker">Share Link</p>
-          <span class="status-badge synced">CONNECTED</span>
+          <span class="status-badge" :class="membersStore.invitationsSupported ? 'synced' : 'viewer'">{{ membersStore.invitationsSupported ? 'CONNECTED' : 'MIGRATION REQUIRED' }}</span>
         </div>
         <form class="drawer-block" @submit.prevent="inviteMember">
-          <input v-model="inviteForm.email" class="input" type="email" placeholder="teammate@example.com" :disabled="!canManage" required />
-          <select v-model="inviteForm.role" class="input" :disabled="!canManage">
+          <input v-model="inviteForm.email" class="input" type="email" placeholder="teammate@example.com" :disabled="!canInvite" required />
+          <select v-model="inviteForm.role" class="input" :disabled="!canInvite">
             <option value="viewer">Viewer</option>
             <option value="editor">Editor</option>
           </select>
-          <button class="button primary" type="submit" :disabled="!canManage">Invite member</button>
+          <button class="button primary" type="submit" :disabled="!canInvite">Invite member</button>
         </form>
+        <div v-if="!membersStore.invitationsSupported" class="empty-state compact">
+          <strong>Invites require database migration.</strong>
+          <span>The members page still works with existing board_members rows.</span>
+        </div>
         <div class="invite-list">
           <div v-for="invitation in membersStore.invitations" :key="invitation.id" class="invite-row">
             <div>
               <strong>{{ invitation.email }}</strong>
               <span>{{ invitation.role }} · expires {{ new Date(invitation.expiresAt).toLocaleDateString() }}</span>
             </div>
-            <button class="button secondary" type="button" :disabled="!canManage" @click="revokeInvite(invitation)">Revoke</button>
+            <button class="button secondary" type="button" :disabled="!canInvite" @click="revokeInvite(invitation)">Revoke</button>
           </div>
           <div v-if="!membersStore.invitations.length" class="empty-state compact">
             <strong>No pending invitations</strong>

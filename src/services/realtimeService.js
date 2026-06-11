@@ -27,28 +27,47 @@ export function subscribeToBoard(boardId, handlers = {}) {
   }
 
   if (isSupabaseConfigured && supabase) {
-    mode = "supabase";
-    supabaseChannel = supabase
-      .channel(channelName)
-      .on("presence", { event: "sync" }, () => handlers.onPresenceSync?.(supabaseChannel.presenceState()))
-      .on("presence", { event: "join" }, ({ key, newPresences }) => handlers.onPresenceJoin?.({ key, presences: newPresences }))
-      .on("presence", { event: "leave" }, ({ key, leftPresences }) => handlers.onPresenceLeave?.({ key, presences: leftPresences }))
-      .on("postgres_changes", { event: "*", schema: "public", table: "boards", filter: `id=eq.${boardId}` }, (payload) =>
-        handlers.onDatabaseChange?.({ table: "boards", payload })
-      )
-      .on("postgres_changes", { event: "*", schema: "public", table: "cards", filter: `board_id=eq.${boardId}` }, (payload) =>
-        handlers.onDatabaseChange?.({ table: "cards", payload })
-      )
-      .on("postgres_changes", { event: "*", schema: "public", table: "columns", filter: `board_id=eq.${boardId}` }, (payload) =>
-        handlers.onDatabaseChange?.({ table: "columns", payload })
-      )
-      .on("postgres_changes", { event: "*", schema: "public", table: "activity_logs", filter: `board_id=eq.${boardId}` }, (payload) =>
-        handlers.onDatabaseChange?.({ table: "activity_logs", payload })
-      )
-      .on("postgres_changes", { event: "*", schema: "public", table: "board_members", filter: `board_id=eq.${boardId}` }, (payload) =>
-        handlers.onDatabaseChange?.({ table: "board_members", payload })
-      )
-      .subscribe((status) => handlers.onStatus?.(status));
+    try {
+      mode = "supabase";
+      supabaseChannel = supabase
+        .channel(channelName)
+        .on("presence", { event: "sync" }, () => handlers.onPresenceSync?.(supabaseChannel.presenceState()))
+        .on("presence", { event: "join" }, ({ key, newPresences }) => handlers.onPresenceJoin?.({ key, presences: newPresences }))
+        .on("presence", { event: "leave" }, ({ key, leftPresences }) => handlers.onPresenceLeave?.({ key, presences: leftPresences }))
+        .on("postgres_changes", { event: "*", schema: "public", table: "boards", filter: `id=eq.${boardId}` }, (payload) =>
+          handlers.onDatabaseChange?.({ table: "boards", payload })
+        )
+        .on("postgres_changes", { event: "*", schema: "public", table: "cards", filter: `board_id=eq.${boardId}` }, (payload) =>
+          handlers.onDatabaseChange?.({ table: "cards", payload })
+        )
+        .on("postgres_changes", { event: "*", schema: "public", table: "card_checklist_items" }, (payload) =>
+          handlers.onDatabaseChange?.({ table: "card_checklist_items", payload })
+        )
+        .on("postgres_changes", { event: "*", schema: "public", table: "card_comments" }, (payload) =>
+          handlers.onDatabaseChange?.({ table: "card_comments", payload })
+        )
+        .on("postgres_changes", { event: "*", schema: "public", table: "columns", filter: `board_id=eq.${boardId}` }, (payload) =>
+          handlers.onDatabaseChange?.({ table: "columns", payload })
+        )
+        .on("postgres_changes", { event: "*", schema: "public", table: "activity_logs", filter: `board_id=eq.${boardId}` }, (payload) =>
+          handlers.onDatabaseChange?.({ table: "activity_logs", payload })
+        )
+        .on("postgres_changes", { event: "*", schema: "public", table: "board_members", filter: `board_id=eq.${boardId}` }, (payload) =>
+          handlers.onDatabaseChange?.({ table: "board_members", payload })
+        )
+        .subscribe((status, error) => {
+          if (error) console.warn("[Supabase] realtime subscription warning", error);
+          if (status === "SUBSCRIBED" && mode === "reconnecting") handlers.onReconnect?.();
+          if (status === "SUBSCRIBED") mode = "supabase";
+          if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) mode = "reconnecting";
+          handlers.onStatus?.(status);
+        });
+    } catch (error) {
+      console.warn("[Supabase] realtime subscription unavailable; falling back to local tab sync.", error);
+      mode = "broadcast";
+      supabaseChannel = null;
+      handlers.onStatus?.("CHANNEL_ERROR");
+    }
   }
 
   return {

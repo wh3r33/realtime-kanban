@@ -18,6 +18,25 @@ export function isSupabaseSetupError(error) {
   return error?.status === 403 || error?.status === 406 || error?.code === "42501" || /permission|row-level security|rls/i.test(error?.message || "");
 }
 
+export function isMissingSupabaseSchemaError(error) {
+  const message = error?.message || error?.details || error?.hint || "";
+  return (
+    error?.code === "PGRST202" ||
+    error?.status === 404 ||
+    (error?.status === 400 && /column|does not exist|schema cache/i.test(message)) ||
+    /relation .* does not exist/i.test(message) ||
+    /column .* does not exist/i.test(message) ||
+    /could not find .* in the schema cache/i.test(message) ||
+    /function .* does not exist/i.test(message)
+  );
+}
+
+export function migrationRequiredError(feature) {
+  const error = new Error(`${feature} require database migration.`);
+  error.code = "MIGRATION_REQUIRED";
+  return error;
+}
+
 export function supabaseSetupError(context) {
   return new Error(`${context}. Check that supabase/schema.sql has been run and that Supabase RLS policies allow this authenticated user.`);
 }

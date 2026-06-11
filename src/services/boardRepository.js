@@ -1,4 +1,4 @@
-import { getCurrentProfile, getCurrentUser, isSupabaseSetupError, missingSupabaseEnvMessage, supabase, supabaseSetupError, warnSupabaseError } from "./supabaseClient";
+import { getCurrentProfile, getCurrentUser, isMissingSupabaseSchemaError, isSupabaseSetupError, missingSupabaseEnvMessage, supabase, supabaseSetupError, warnSupabaseError } from "./supabaseClient";
 import { createActivityLog } from "./activityRepository";
 
 const DEFAULT_COLUMNS = ["Todo", "In Progress", "Review", "Done"];
@@ -55,6 +55,8 @@ function mapCard(row) {
     position: row.position ?? 0,
     status: row.status || "active",
     labels: row.labels || [],
+    aiPriority: row.ai_priority ?? null,
+    aiPriorityReason: row.ai_priority_reason || "",
     history: [],
     updatedAt: row.updated_at ? new Date(row.updated_at).toLocaleString() : "",
     version: row.version || 1,
@@ -75,6 +77,17 @@ export async function listBoardsForCurrentUser() {
     .eq("board_members.user_id", user.id)
     .order("updated_at", { ascending: false });
   warnSupabaseError("boards list failed", queryError);
+  if (isMissingSupabaseSchemaError(queryError)) {
+    console.warn("[Supabase] board aggregate relations are unavailable; loading boards with legacy membership query.");
+    const memberships = await client.from("board_members").select("board_id, role").eq("user_id", user.id);
+    warnSupabaseError("legacy board memberships list failed", memberships.error);
+    if (memberships.error) return { data: [], error: isSupabaseSetupError(memberships.error) ? boardsRlsError() : memberships.error };
+    const boardIds = (memberships.data || []).map((row) => row.board_id).filter(Boolean);
+    if (!boardIds.length) return { data: [], error: null };
+    const boards = await client.from("boards").select("*").in("id", boardIds).order("updated_at", { ascending: false });
+    warnSupabaseError("legacy boards list failed", boards.error);
+    return { data: (boards.data || []).map(mapBoard), error: isSupabaseSetupError(boards.error) ? boardsRlsError() : boards.error };
+  }
 
   return { data: (data || []).map(mapBoard), error: isSupabaseSetupError(queryError) ? boardsRlsError() : queryError };
 }
@@ -148,6 +161,19 @@ export async function getBoardCards(boardId) {
     .is("deleted_at", null)
     .order("position", { ascending: true });
   warnSupabaseError("cards list failed", queryError);
+  if (isMissingSupabaseSchemaError(queryError)) {
+    console.warn("[Supabase] cards.deleted_at is unavailable; loading cards with legacy query.");
+    const legacyResult = await client
+      .from("cards")
+      .select("*, columns(title)")
+      .eq("board_id", boardId)
+      .order("position", { ascending: true });
+    warnSupabaseError("legacy cards list failed", legacyResult.error);
+    return {
+      data: (legacyResult.data || []).map(mapCard),
+      error: isSupabaseSetupError(legacyResult.error) ? supabaseSetupError("Cards could not be loaded from Supabase") : legacyResult.error
+    };
+  }
   return { data: (data || []).map(mapCard), error: isSupabaseSetupError(queryError) ? supabaseSetupError("Cards could not be loaded from Supabase") : queryError };
 }
 

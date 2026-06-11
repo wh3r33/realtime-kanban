@@ -6,6 +6,13 @@ import {
   restoreCard as restoreCardRow,
   updateCard as updateCardRow
 } from "../services/cardRepository";
+import { insertChecklistItems, listChecklistItemsForBoard, updateChecklistItem } from "../services/checklistRepository";
+import {
+  createComment as insertComment,
+  deleteComment as removeCommentRow,
+  listCommentsForBoard,
+  updateComment as updateCommentRow
+} from "../services/commentRepository";
 import { subscribeToBoard } from "../services/realtimeService";
 import { isSupabaseConfigured } from "../services/supabaseClient";
 import { useAuthStore } from "./auth";
@@ -16,6 +23,7 @@ import { useUiStore } from "./ui";
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const sortCards = (items) => [...items].sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.title.localeCompare(b.title));
 const canMutate = () => useAuthStore().canMutateCards;
+const offlineError = () => new Error("Нет соединения. Действие поставлено в очередь и будет повторено после восстановления сети.");
 
 function mapCardRow(row) {
   const boardsStore = useBoardsStore();
@@ -32,6 +40,8 @@ function mapCardRow(row) {
     position: row.position ?? 0,
     status: row.status || "active",
     labels: row.labels || [],
+    aiPriority: row.ai_priority ?? null,
+    aiPriorityReason: row.ai_priority_reason || "",
     history: [],
     updatedAt: row.updated_at ? new Date(row.updated_at).toLocaleString() : "",
     version: row.version || 1,
@@ -55,14 +65,20 @@ export const useCardsStore = defineStore("cards", {
   state: () => ({
     cards: [],
     comments: [],
+    checklistItemsByCardId: {},
     selectedCardId: null,
     undoHistory: [],
     redoHistory: [],
     movementError: null,
-      conflict: null,
-      seenRealtimeEvents: [],
-      loading: false,
+    conflict: null,
+    seenRealtimeEvents: [],
+    loading: false,
     errorMessage: "",
+    offline: {
+      isOnline: true,
+      queue: [],
+      syncing: false
+    },
     realtime: {
       boardId: null,
       mode: "none",
@@ -73,7 +89,16 @@ export const useCardsStore = defineStore("cards", {
   getters: {
     selectedCard: (state) => state.cards.find((card) => card.id === state.selectedCardId),
     cardById: (state) => (cardId) => state.cards.find((card) => card.id === cardId),
-    commentsFor: (state) => () => [],
+    checklistForCard: (state) => (cardId) => state.checklistItemsByCardId[cardId] || [],
+    checklistSummaryForCard: (state) => (cardId) => {
+      const items = state.checklistItemsByCardId[cardId] || [];
+      return {
+        total: items.length,
+        completed: items.filter((item) => item.isDone).length,
+        open: items.filter((item) => !item.isDone)
+      };
+    },
+    commentsFor: (state) => (cardId) => state.comments.filter((comment) => comment.cardId === cardId),
     cardsForColumn: (state) => (boardId, columnId) => sortCards(state.cards.filter((card) => card.boardId === boardId && card.columnId === columnId))
   },
   actions: {
@@ -87,7 +112,61 @@ export const useCardsStore = defineStore("cards", {
       const { data, error } = await boardsStore.loadBoardCards(boardId);
       this.cards = data || [];
       this.errorMessage = error?.message || "";
+      if (!error) await this.loadChecklistItems(boardId);
+      if (!error) await this.loadComments(boardId);
       this.loading = false;
+    },
+    setOnlineStatus(isOnline) {
+      this.offline.isOnline = isOnline;
+      if (isOnline) this.flushOfflineQueue();
+    },
+    enqueueOffline(action) {
+      this.offline.queue.push({
+        id: `offline-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        createdAt: new Date().toISOString(),
+        ...action
+      });
+      this.errorMessage = offlineError().message;
+    },
+    async flushOfflineQueue() {
+      if (this.offline.syncing || !this.offline.isOnline || !this.offline.queue.length) return;
+      this.offline.syncing = true;
+      const queue = [...this.offline.queue];
+      this.offline.queue = [];
+      for (const action of queue) {
+        let result = null;
+        if (action.type === "create") result = await this.createCard(action.payload, { ...action.options, fromQueue: true });
+        if (action.type === "update") result = await this.updateCard(action.cardId, action.patch, { ...action.options, fromQueue: true });
+        if (action.type === "move") result = await this.moveTask(action.cardId, action.targetColumnId, action.toIndex, { ...action.options, fromQueue: true });
+        if (action.type === "delete") result = await this.deleteCard(action.cardId, { ...action.options, fromQueue: true });
+        if (result?.error) this.offline.queue.push(action);
+      }
+      this.offline.syncing = false;
+    },
+    async loadChecklistItems(boardId = useBoardsStore().selectedBoardId) {
+      if (!isSupabaseConfigured || !boardId) {
+        this.checklistItemsByCardId = {};
+        return { items: [] };
+      }
+      const { data, error } = await listChecklistItemsForBoard(boardId);
+      this.errorMessage = error?.message || "";
+      if (error) return { error };
+      this.checklistItemsByCardId = (data || []).reduce((groups, item) => {
+        groups[item.cardId] = [...(groups[item.cardId] || []), item].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+        return groups;
+      }, {});
+      return { items: data || [] };
+    },
+    async loadComments(boardId = useBoardsStore().selectedBoardId) {
+      if (!isSupabaseConfigured || !boardId) {
+        this.comments = [];
+        return { comments: [] };
+      }
+      const { data, error } = await listCommentsForBoard(boardId);
+      this.errorMessage = error?.message || "";
+      if (error) return { error };
+      this.comments = data || [];
+      return { comments: data || [] };
     },
     initializeRealtime(boardId) {
       if (!boardId) return;
@@ -103,11 +182,18 @@ export const useCardsStore = defineStore("cards", {
           if (this.hasSeenRealtimePayload(event)) return;
           if (event.table === "boards") boardsStore.applyBoardChange(event.payload);
           if (event.table === "cards") this.applyCardChange(event.payload);
+          if (event.table === "card_checklist_items") this.loadChecklistItems(boardId);
+          if (event.table === "card_comments") this.applyCommentChange(event.payload);
           if (event.table === "columns") boardsStore.applyColumnChange(event.payload);
           if (event.table === "activity_logs") uiStore.applyActivityChange(event.payload);
           if (event.table === "board_members") useMembersStore().applyMemberChange(event.payload);
         },
         onPresenceSync: (state) => useMembersStore().applyPresenceState(state),
+        onReconnect: async () => {
+          await this.loadCards(boardId);
+          await useUiStore().loadActivity(boardId);
+          await useMembersStore().loadMembers(boardId);
+        },
         onStatus: (status) => {
           if (status === "SUBSCRIBED") {
             useUiStore().setSyncState("synced", "Realtime subscription active");
@@ -121,6 +207,8 @@ export const useCardsStore = defineStore("cards", {
           } else if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) {
             useUiStore().setSyncState("partial", `Realtime ${status.toLowerCase().replace(/_/g, " ")}`);
             useMembersStore().setPresenceDisconnected();
+          } else if (status === "RECONNECTING") {
+            useUiStore().setSyncState("partial", "Realtime переподключается");
           }
         }
       });
@@ -193,6 +281,27 @@ export const useCardsStore = defineStore("cards", {
       if (!options.remote) this.publish({ type: "card:deleted", cardId });
       return existing;
     },
+    replaceCards(nextCards) {
+      const byId = new Map(nextCards.map((card) => [card.id, card]));
+      this.cards = [...byId.values()];
+    },
+    normalizeColumnPositions(boardId, columnId) {
+      const ordered = this.cardsForColumn(boardId, columnId);
+      this.cards = this.cards.map((card) => {
+        const index = ordered.findIndex((item) => item.id === card.id);
+        return index >= 0 ? { ...card, position: index } : card;
+      });
+    },
+    applyConflict(cardId, remote, mine = null) {
+      if (remote) this.upsertCard(remote, { remote: true });
+      this.conflict = {
+        cardId,
+        mine: mine ? clone(mine) : null,
+        latest: remote ? clone(remote) : null,
+        message: "Конфликт версии: карточка уже изменена другим пользователем. Загружена последняя версия."
+      };
+      this.errorMessage = this.conflict.message;
+    },
     applyCardChange(payload) {
       if (payload.eventType === "DELETE" || payload.new?.deleted_at) {
         this.removeCard(payload.old?.id || payload.new?.id, { remote: true });
@@ -200,19 +309,64 @@ export const useCardsStore = defineStore("cards", {
       }
       this.upsertCard(mapCardRow(payload.new), { remote: true });
     },
-    async createCard(payload) {
+    applyCommentChange(payload) {
+      if (payload.eventType === "DELETE") {
+        this.comments = this.comments.filter((comment) => comment.id !== payload.old.id);
+        return;
+      }
+      const row = payload.new;
+      const comment = {
+        id: row.id,
+        cardId: row.card_id,
+        authorId: row.user_id,
+        authorName: "User",
+        body: row.body,
+        createdAt: row.created_at ? new Date(row.created_at).toLocaleString() : "",
+        updatedAt: row.updated_at ? new Date(row.updated_at).toLocaleString() : ""
+      };
+      this.comments = [comment, ...this.comments.filter((item) => item.id !== comment.id)].sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+    },
+    async createCard(payload, options = {}) {
       if (!this.assertCanMutate()) return { error: "viewer" };
       const columnId = payload.columnId;
       if (!columnId) return { error: "missing-column" };
+      const snapshot = clone(this.cards);
       const columnCards = this.cardsForColumn(payload.boardId, columnId);
+      const optimisticCard = {
+        id: `temp-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        boardId: payload.boardId,
+        columnId,
+        column: useBoardsStore().columnById(columnId)?.title || columnId,
+        title: payload.title.trim(),
+        description: payload.description.trim(),
+        assigneeId: payload.assigneeId || null,
+        createdBy: useAuthStore().currentUserId,
+        position: columnCards.length,
+        status: "active",
+        labels: payload.labels || [],
+        history: [],
+        updatedAt: "Сохраняется...",
+        version: 1,
+        pending: true
+      };
+      this.upsertCard(optimisticCard, { remote: true });
+      if (!this.offline.isOnline && !options.fromQueue) {
+        this.enqueueOffline({ type: "create", payload, options });
+        return { card: optimisticCard, queued: true };
+      }
       const { data, error } = await insertCard(payload.boardId, columnId, {
         title: payload.title.trim(),
         description: payload.description.trim(),
         assigneeId: payload.assigneeId,
-        position: columnCards.length
+        position: columnCards.length,
+        labels: payload.labels || []
       });
       this.errorMessage = error?.message || "";
-      if (error) return { error };
+      if (error) {
+        this.cards = snapshot;
+        return { error };
+      }
+      this.removeCard(optimisticCard.id, { remote: true });
       this.upsertCard(data);
       if (!payload.skipHistory) this.pushHistory(createHistoryAction("create", null, data));
       await useUiStore().loadActivity(payload.boardId);
@@ -231,30 +385,98 @@ export const useCardsStore = defineStore("cards", {
         return { error: "conflict", conflict: this.conflict };
       }
       const before = clone(existing);
-      const { data, error } = await updateCardRow(cardId, {
+      const optimistic = {
+        ...existing,
+        title: patch.title?.trim() || existing.title,
+        description: patch.description?.trim() ?? existing.description,
+        assigneeId: patch.assigneeId,
+        status: patch.status || existing.status,
+        labels: patch.labels || existing.labels,
+        version: existing.version + 1,
+        pending: true,
+        updatedAt: "Сохраняется..."
+      };
+      this.upsertCard(optimistic, { remote: true });
+      if (!this.offline.isOnline && !options.fromQueue) {
+        this.enqueueOffline({ type: "update", cardId, patch, options: { ...options, expectedVersion: existing.version } });
+        return { card: optimistic, queued: true };
+      }
+      const { data, error, conflict, remote } = await updateCardRow(cardId, {
         title: patch.title?.trim() || existing.title,
         description: patch.description?.trim() ?? existing.description,
         assigneeId: patch.assigneeId,
         status: patch.status || existing.status,
         labels: patch.labels || existing.labels
-      });
+      }, options.expectedVersion || existing.version);
       this.errorMessage = error?.message || "";
-      if (error) return { error };
+      if (conflict) {
+        this.applyConflict(cardId, remote, optimistic);
+        return { error: "conflict", conflict: this.conflict };
+      }
+      if (error) {
+        this.upsertCard(before, { remote: true });
+        this.errorMessage = `Ошибка сохранения карточки: ${error.message || error}`;
+        return { error };
+      }
       this.upsertCard(data);
       if (!options.skipHistory) this.pushHistory(createHistoryAction("edit", before, data));
       await useUiStore().loadActivity(data.boardId);
       return { card: data };
     },
+    async saveChecklistItemsToCard(cardId, titles) {
+      if (!this.assertCanMutate()) return { error: "viewer" };
+      if (!cardId || !this.cardById(cardId)) return { error: "missing-card" };
+      const { data, skipped, error } = await insertChecklistItems(cardId, titles);
+      this.errorMessage = error?.message || "";
+      if (error) return { error };
+      if (data?.length) {
+        this.checklistItemsByCardId = {
+          ...this.checklistItemsByCardId,
+          [cardId]: [...(this.checklistItemsByCardId[cardId] || []), ...data].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+        };
+      }
+      return { items: data || [], skipped: skipped || [] };
+    },
+    async toggleChecklistItem(itemId, isDone) {
+      if (!this.assertCanMutate()) return { error: "viewer" };
+      const { data, error } = await updateChecklistItem(itemId, { isDone });
+      this.errorMessage = error?.message || "";
+      if (error) return { error };
+      if (data) {
+        const items = this.checklistItemsByCardId[data.cardId] || [];
+        this.checklistItemsByCardId = {
+          ...this.checklistItemsByCardId,
+          [data.cardId]: items.map((item) => (item.id === data.id ? data : item)).sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+        };
+      }
+      return { item: data };
+    },
     async deleteCard(cardId, options = {}) {
       if (!this.assertCanMutate()) return { error: "viewer" };
       const before = this.cardById(cardId);
-      const { data, error } = await removeCardRow(cardId);
-      this.errorMessage = error?.message || "";
-      if (error) return { error };
-      this.removeCard(cardId);
-      if (!options.skipHistory) this.pushHistory(createHistoryAction("delete", before, data));
+      if (!before) return { error: "missing" };
+      const snapshot = clone(this.cards);
+      this.removeCard(cardId, { remote: true });
+      if (!this.offline.isOnline && !options.fromQueue) {
+        this.enqueueOffline({ type: "delete", cardId, options: { ...options, expectedVersion: before.version } });
+        if (!options.skipHistory) this.pushHistory(createHistoryAction("delete", before, before));
+        return { card: before, queued: true };
+      }
+      const { data, error, warning, restorable, conflict, remote } = await removeCardRow(cardId, options.expectedVersion || before.version);
+      this.errorMessage = error?.message || warning || "";
+      if (conflict) {
+        this.cards = snapshot;
+        this.applyConflict(cardId, remote, before);
+        return { error: "conflict", conflict: this.conflict };
+      }
+      if (error) {
+        this.cards = snapshot;
+        this.errorMessage = `Ошибка удаления карточки: ${error.message || error}`;
+        return { error };
+      }
+      if (!options.skipHistory && restorable !== false) this.pushHistory(createHistoryAction("delete", before, data));
       await useUiStore().loadActivity(data.boardId);
-      return { card: data };
+      return { card: data, warning };
     },
     simulateRemoteEdit() {
       return null;
@@ -267,28 +489,93 @@ export const useCardsStore = defineStore("cards", {
       this.conflict = null;
       return this.selectedCard;
     },
-    addComment() {
-      return { error: "not-implemented" };
+    async addComment(cardId, body) {
+      if (!this.assertCanMutate()) return { error: "viewer" };
+      if (!body?.trim()) return { error: "empty" };
+      const { data, error } = await insertComment(cardId, body);
+      this.errorMessage = error?.message || "";
+      if (error) return { error };
+      this.comments = [...this.comments.filter((comment) => comment.id !== data.id), data];
+      await useUiStore().loadActivity(this.cardById(cardId)?.boardId);
+      return { comment: data };
     },
-    updateComment() {
-      return { error: "not-implemented" };
+    async updateComment(commentId, body) {
+      if (!this.assertCanMutate()) return { error: "viewer" };
+      const { data, error } = await updateCommentRow(commentId, body);
+      this.errorMessage = error?.message || "";
+      if (error) return { error };
+      this.comments = this.comments.map((comment) => (comment.id === data.id ? data : comment));
+      await useUiStore().loadActivity(this.cardById(data.cardId)?.boardId);
+      return { comment: data };
     },
-    deleteComment() {
-      return { error: "not-implemented" };
+    async deleteComment(commentId) {
+      if (!this.assertCanMutate()) return { error: "viewer" };
+      const existing = this.comments.find((comment) => comment.id === commentId);
+      const { data, error } = await removeCommentRow(commentId);
+      this.errorMessage = error?.message || "";
+      if (error) return { error };
+      this.comments = this.comments.filter((comment) => comment.id !== commentId);
+      await useUiStore().loadActivity(this.cardById(existing?.cardId || data?.cardId)?.boardId);
+      return { comment: data };
     },
-    async moveTask(cardId, targetColumnId, toIndex = Number.POSITIVE_INFINITY) {
+    async moveTask(cardId, targetColumnId, toIndex = Number.POSITIVE_INFINITY, options = {}) {
       if (!this.assertCanMutate()) return { error: "viewer" };
       const task = this.cardById(cardId);
       if (!task) return null;
+      const snapshot = clone(this.cards);
       const before = clone(task);
       const fromColumnId = task.columnId;
       const fromPosition = task.position ?? 0;
       const targetCards = this.cardsForColumn(task.boardId, targetColumnId).filter((card) => card.id !== cardId);
       const nextIndex = Math.max(0, Math.min(toIndex, targetCards.length));
       if (fromColumnId === targetColumnId && fromPosition === nextIndex) return null;
-      const { data, error } = await moveCardRow(cardId, targetColumnId, nextIndex);
+      const targetColumn = useBoardsStore().columnById(targetColumnId);
+      const withoutMoved = this.cards.filter((card) => card.id !== cardId);
+      const moved = {
+        ...task,
+        columnId: targetColumnId,
+        column: targetColumn?.title || targetColumnId,
+        position: nextIndex,
+        version: task.version + 1,
+        pending: true,
+        updatedAt: "Сохраняется..."
+      };
+      const nextCards = [];
+      for (const card of withoutMoved) {
+        if (card.boardId === task.boardId && card.columnId === targetColumnId && card.position >= nextIndex) nextCards.push({ ...card, position: card.position + 1 });
+        else if (card.boardId === task.boardId && card.columnId === fromColumnId && card.position > fromPosition) nextCards.push({ ...card, position: card.position - 1 });
+        else nextCards.push(card);
+      }
+      nextCards.push(moved);
+      this.replaceCards(nextCards);
+      this.normalizeColumnPositions(task.boardId, fromColumnId);
+      this.normalizeColumnPositions(task.boardId, targetColumnId);
+      if (!this.offline.isOnline && !options.fromQueue) {
+        this.enqueueOffline({ type: "move", cardId, targetColumnId, toIndex: nextIndex, options: { ...options, expectedVersion: task.version } });
+        this.pushHistory(createHistoryAction("move", before, moved));
+        return {
+          cardId,
+          boardId: task.boardId,
+          from: before.column,
+          to: moved.column,
+          fromPosition,
+          toPosition: nextIndex,
+          title: task.title,
+          queued: true
+        };
+      }
+      const { data, error, conflict, remote } = await moveCardRow(cardId, targetColumnId, nextIndex, options.expectedVersion || task.version);
       this.movementError = error?.message || null;
-      if (error) return { error };
+      if (conflict) {
+        this.cards = snapshot;
+        this.applyConflict(cardId, remote, moved);
+        return { error: "conflict", conflict: this.conflict };
+      }
+      if (error) {
+        this.cards = snapshot;
+        this.errorMessage = `Ошибка перемещения карточки: ${error.message || error}`;
+        return { error };
+      }
       this.upsertCard(data);
       this.pushHistory(createHistoryAction("move", before, data));
       await useUiStore().loadActivity(task.boardId);
@@ -344,13 +631,14 @@ export const useCardsStore = defineStore("cards", {
             status: card.status,
             labels: card.labels
           },
-          { skipHistory: true }
+          { skipHistory: true, expectedVersion: this.cardById(action.cardId)?.version }
         );
         return result?.error ? result : { ok: true };
       }
       if (action.type === "move") {
         const card = isUndo ? action.before : action.after;
-        const result = await moveCardRow(action.cardId, card.columnId, card.position ?? 0);
+        const current = this.cardById(action.cardId);
+        const result = await moveCardRow(action.cardId, card.columnId, card.position ?? 0, current?.version);
         if (result.error) return { error: result.error };
         this.upsertCard(result.data);
         await useUiStore().loadActivity(result.data.boardId);
@@ -360,8 +648,13 @@ export const useCardsStore = defineStore("cards", {
     },
     async restoreCard(cardId) {
       if (!this.assertCanMutate()) return { error: "viewer" };
-      const { data, error } = await restoreCardRow(cardId);
+      const current = this.cardById(cardId);
+      const { data, error, conflict, remote } = await restoreCardRow(cardId, current?.version);
       this.errorMessage = error?.message || "";
+      if (conflict) {
+        this.applyConflict(cardId, remote, current);
+        return { error: "conflict", conflict: this.conflict };
+      }
       if (error) return { error };
       this.upsertCard(data);
       await useUiStore().loadActivity(data.boardId);

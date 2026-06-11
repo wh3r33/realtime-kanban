@@ -556,7 +556,7 @@ svg {
 
 .quick-card-form {
   display: grid;
-  grid-template-columns: minmax(160px, 0.8fr) minmax(220px, 1.4fr) minmax(140px, 0.55fr) auto;
+  grid-template-columns: minmax(150px, 0.8fr) minmax(210px, 1.3fr) minmax(130px, 0.55fr) minmax(150px, 0.7fr) minmax(150px, 0.7fr) auto;
   align-items: end;
   gap: 10px;
   margin: 0 0 18px;
@@ -564,6 +564,19 @@ svg {
   border: 1px solid rgba(16, 16, 15, 0.08);
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.64);
+}
+
+.board-filters,
+.search-control-panel {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.7fr) minmax(140px, 0.6fr) minmax(130px, 0.55fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.compact-panel {
+  padding: 12px;
 }
 
 .quick-card-form label {
@@ -723,6 +736,18 @@ svg {
   transform: scale(0.98);
 }
 
+.task-card[draggable="true"] {
+  cursor: grab;
+}
+
+.task-card[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.task-card.pending {
+  opacity: 0.72;
+}
+
 .task-card.conflict-state {
   border-color: rgba(240, 82, 82, 0.48);
   box-shadow: 0 4px 8px rgba(240, 82, 82, 0.12);
@@ -827,6 +852,43 @@ svg {
   background: rgba(16, 16, 15, 0.055);
 }
 
+.card-checklist-preview {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(16, 16, 15, 0.08);
+  border-radius: var(--radius-sm);
+  background: rgba(246, 246, 244, 0.78);
+}
+
+.checklist-count-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.checklist-count-row strong {
+  color: var(--ink);
+}
+
+.card-checklist-preview ul,
+.ai-rail-results ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card-checklist-preview li {
+  color: var(--soft-ink);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .empty-state {
   display: grid;
   gap: 5px;
@@ -898,6 +960,103 @@ svg {
   font-weight: 900;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.rail-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.rail-heading-row .rail-label {
+  margin-bottom: 0;
+}
+
+.rail-ai-button {
+  min-height: 34px;
+  padding: 0 13px;
+}
+
+.ai-rail-panel {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.ai-action-row {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid rgba(16, 16, 15, 0.08);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--ink);
+  text-align: left;
+  transition: border-color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease);
+}
+
+.ai-action-row:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(40, 85, 255, 0.26);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.ai-action-row strong {
+  font-size: 13px;
+}
+
+.ai-action-row span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.ai-rail-status {
+  padding: 10px 12px;
+  border: 1px solid rgba(40, 85, 255, 0.13);
+  border-radius: var(--radius-sm);
+  background: rgba(40, 85, 255, 0.07);
+  color: var(--soft-ink);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.ai-rail-status.error {
+  border-color: rgba(240, 82, 82, 0.26);
+  background: rgba(240, 82, 82, 0.08);
+  color: #9f1239;
+}
+
+.ai-rail-status.success {
+  border-color: rgba(20, 125, 82, 0.24);
+  background: rgba(20, 125, 82, 0.08);
+  color: var(--success);
+}
+
+.ai-rail-results {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(16, 16, 15, 0.08);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.ai-rail-results p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ai-rail-results li {
+  color: var(--soft-ink);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .editing-now,
@@ -1016,6 +1175,39 @@ svg {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.5;
+}
+
+.drawer-checklist {
+  display: grid;
+  gap: 8px;
+}
+
+.checklist-toggle {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  align-items: start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(16, 16, 15, 0.08);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--soft-ink);
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+.checklist-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  accent-color: var(--accent);
+}
+
+.checklist-toggle.done span,
+.saved-checklist li.done {
+  color: var(--muted);
+  text-decoration: line-through;
 }
 
 .drawer-actions,
@@ -2528,6 +2720,17 @@ a {
     overflow-x: auto;
   }
 
+  .quick-card-form,
+  .board-filters,
+  .search-control-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quick-card-form .button,
+  .board-filters .status-badge {
+    width: 100%;
+  }
+
   .toast-stack {
     right: 22px;
     bottom: 286px;
@@ -2611,6 +2814,12 @@ a {
   .page-header p {
     max-width: min(100%, 28em);
     overflow-wrap: break-word;
+  }
+
+  .quick-card-form,
+  .board-filters,
+  .search-control-panel {
+    grid-template-columns: 1fr;
   }
 
   .board-card,
@@ -2764,7 +2973,7 @@ a {
   }
 
   .workspace-screen {
-    padding: 154px 14px 320px;
+    padding: 154px 14px 34px;
   }
 
   .board-hero {
@@ -2792,10 +3001,24 @@ a {
     right: 14px;
     bottom: 14px;
     left: 14px;
+    max-height: none;
   }
 
   .activity-feed {
-    grid-template-columns: repeat(3, 220px);
+    grid-template-columns: 1fr;
+  }
+
+  .task-drawer {
+    top: 118px;
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
+    width: auto;
+    padding: 14px;
+  }
+
+  .drawer-content {
+    max-height: calc(100svh - 230px);
   }
 
   .toast-stack {

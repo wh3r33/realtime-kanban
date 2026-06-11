@@ -1,4 +1,4 @@
-import { getCurrentUser, isSupabaseSetupError, missingSupabaseEnvMessage, supabase, supabaseSetupError, warnSupabaseError } from "./supabaseClient";
+import { getCurrentUser, isMissingSupabaseSchemaError, isSupabaseSetupError, missingSupabaseEnvMessage, supabase, supabaseSetupError, warnSupabaseError } from "./supabaseClient";
 
 function requireClient() {
   if (!supabase) return { error: new Error(missingSupabaseEnvMessage) };
@@ -36,6 +36,7 @@ export async function listBoardActivity(boardId) {
     .order("created_at", { ascending: false })
     .limit(50);
   warnSupabaseError("activity list failed", queryError);
+  if (isMissingSupabaseSchemaError(queryError)) return { data: [], error: null };
   return { data: (data || []).map(mapActivity), error: isSupabaseSetupError(queryError) ? supabaseSetupError("Activity logs could not be loaded from Supabase") : queryError };
 }
 
@@ -62,5 +63,6 @@ export async function createActivityLog(boardId, action, entityType, entityId, o
     .select()
     .single();
   warnSupabaseError("activity insert failed", insertError);
+  if (isMissingSupabaseSchemaError(insertError)) return { data: null, error: null };
   return { data: data ? mapActivity(data) : null, error: isSupabaseSetupError(insertError) ? supabaseSetupError("Activity log could not be created in Supabase") : insertError };
 }

@@ -54,7 +54,37 @@ Partial:
 - Presence is not implemented; online/editing sections are hidden or marked “Presence not connected.”
 - RLS policies are not provided in this repo; UI labels do not claim RLS is active.
 - Production auth depends on Supabase auth configuration and `public.handle_new_user()`.
-- Comments, invitations, notifications, analytics, search, offline, and AI assistant are not connected to the provided schema.
+- Comments, invitations, notifications, analytics, search, and offline are not connected to the provided schema.
+
+## AI Assistant Bonus
+
+The existing `prototype/bonus/ai-assistant.html` page can call a Supabase Edge Function for optional AI support:
+
+- AI subtasks for the selected card.
+- AI priority recommendations for board cards.
+
+The frontend calls only `supabase.functions.invoke("ai-assistant")`. It never calls DeepSeek directly.
+
+Setup the DeepSeek secret in Supabase:
+
+```bash
+supabase secrets set DEEPSEEK_API_KEY=your_deepseek_key_here
+```
+
+Deploy the Edge Function:
+
+```bash
+supabase functions deploy ai-assistant
+```
+
+Frontend environment variables:
+
+```bash
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
+```
+
+Security note: the DeepSeek key is stored only in Supabase Edge Function secrets and is never exposed in frontend code.
 
 ## Routes
 

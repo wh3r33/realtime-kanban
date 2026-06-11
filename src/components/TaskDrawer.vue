@@ -11,8 +11,10 @@ const membersStore = useMembersStore();
 const uiStore = useUiStore();
 const task = computed(() => cardsStore.selectedCard);
 const comments = computed(() => (task.value ? cardsStore.commentsFor(task.value.id) : []));
+const checklistItems = computed(() => (task.value ? cardsStore.checklistForCard(task.value.id) : []));
+const checklistSummary = computed(() => (task.value ? cardsStore.checklistSummaryForCard(task.value.id) : { total: 0, completed: 0 }));
 const canMutate = computed(() => authStore.canMutateCards);
-const draft = reactive({ title: "", description: "", assigneeId: null, version: 0 });
+const draft = reactive({ title: "", description: "", assigneeId: null, status: "active", labelsText: "", version: 0 });
 const commentDraft = ref("");
 const editingCommentId = ref(null);
 const editingCommentBody = ref("");
@@ -28,6 +30,8 @@ watch(
     draft.title = card.title;
     draft.description = card.description;
     draft.assigneeId = card.assigneeId;
+    draft.status = card.status || "active";
+    draft.labelsText = (card.labels || []).join(", ");
     draft.version = card.version || 0;
     commentDraft.value = "";
     editingCommentId.value = null;
@@ -43,15 +47,18 @@ async function saveCard() {
     {
       title: draft.title,
       description: draft.description,
-      assigneeId: draft.assigneeId
+      assigneeId: draft.assigneeId,
+      status: draft.status,
+      labels: Array.from(new Set(draft.labelsText.split(",").map((item) => item.trim()).filter(Boolean)))
     },
     { expectedVersion: draft.version }
   );
-  if (result.error === "viewer") uiStore.showToast("Viewer role cannot edit cards");
-  else if (result.error === "conflict") uiStore.showToast("Conflict detected. Choose how to resolve it.");
+  if (result.error === "viewer") uiStore.showToast("Роль viewer не может редактировать карточки");
+  else if (result.error === "conflict") uiStore.showToast("Конфликт версии: карточка уже изменена другим пользователем");
+  else if (result.error) uiStore.showToast(result.error.message || "Ошибка сохранения карточки");
   else {
     draft.version = result.card.version;
-    uiStore.showToast(`${result.card.title} saved`);
+    uiStore.showToast(result.queued ? "Изменение поставлено в очередь офлайн" : `${result.card.title} saved`);
   }
 }
 
@@ -59,18 +66,20 @@ async function deleteCard() {
   if (!task.value) return;
   const title = task.value.title;
   const result = await cardsStore.deleteCard(task.value.id);
-  if (result.error === "viewer") uiStore.showToast("Viewer role cannot delete cards");
-  else uiStore.showToast(`${title} deleted`);
+  if (result.error === "viewer") uiStore.showToast("Роль viewer не может удалять карточки");
+  else if (result.error === "conflict") uiStore.showToast("Конфликт версии: карточка уже изменена другим пользователем");
+  else if (result.error) uiStore.showToast(result.error.message || "Delete failed");
+  else uiStore.showToast(result.queued ? "Удаление поставлено в очередь офлайн" : result.warning || `${title} deleted`);
 }
 
-function addComment() {
+async function addComment() {
   if (!task.value) return;
-  const result = cardsStore.addComment(task.value.id, commentDraft.value);
-  if (result.error === "viewer") uiStore.showToast("Viewer role cannot comment");
-  else if (result.error === "not-implemented") uiStore.showToast("Comments are not connected to the Supabase schema yet");
+  const result = await cardsStore.addComment(task.value.id, commentDraft.value);
+  if (result.error === "viewer") uiStore.showToast("Роль viewer не может комментировать");
+  else if (result.error) uiStore.showToast(result.error.message || "Ошибка комментария");
   else if (!result.error) {
     commentDraft.value = "";
-    uiStore.showToast("Comment added");
+    uiStore.showToast("Комментарий добавлен");
   }
 }
 
@@ -79,10 +88,10 @@ function startEditComment(comment) {
   editingCommentBody.value = comment.body;
 }
 
-function saveComment(commentId) {
-  const result = cardsStore.updateComment(commentId, editingCommentBody.value);
-  if (result.error === "viewer") uiStore.showToast("Viewer role cannot edit comments");
-  else if (result.error === "not-implemented") uiStore.showToast("Comments are not connected to the Supabase schema yet");
+async function saveComment(commentId) {
+  const result = await cardsStore.updateComment(commentId, editingCommentBody.value);
+  if (result.error === "viewer") uiStore.showToast("Роль viewer не может редактировать комментарии");
+  else if (result.error) uiStore.showToast(result.error.message || "Ошибка комментария");
   else {
     editingCommentId.value = null;
     editingCommentBody.value = "";
@@ -90,10 +99,10 @@ function saveComment(commentId) {
   }
 }
 
-function deleteComment(commentId) {
-  const result = cardsStore.deleteComment(commentId);
-  if (result.error === "viewer") uiStore.showToast("Viewer role cannot delete comments");
-  else if (result.error === "not-implemented") uiStore.showToast("Comments are not connected to the Supabase schema yet");
+async function deleteComment(commentId) {
+  const result = await cardsStore.deleteComment(commentId);
+  if (result.error === "viewer") uiStore.showToast("Роль viewer не может удалять комментарии");
+  else if (result.error) uiStore.showToast(result.error.message || "Ошибка комментария");
   else uiStore.showToast("Comment deleted");
 }
 
@@ -121,6 +130,12 @@ function acceptLatest() {
     draft.version = card.version;
     uiStore.showToast("Accepted latest version");
   }
+}
+
+async function toggleChecklistItem(item) {
+  const result = await cardsStore.toggleChecklistItem(item.id, !item.isDone);
+  if (result.error === "viewer") uiStore.showToast("Роль viewer не может менять чеклист");
+  else if (result.error) uiStore.showToast(`Ошибка сохранения чеклиста: ${result.error.message || result.error}`);
 }
 </script>
 
@@ -169,6 +184,18 @@ function acceptLatest() {
             <option v-for="member in membersStore.members" :key="member.id" :value="member.id">{{ member.name }}</option>
           </select>
         </label>
+        <label>
+          Status
+          <select v-model="draft.status" class="input" :disabled="!canMutate">
+            <option value="active">active</option>
+            <option value="blocked">blocked</option>
+            <option value="done">done</option>
+          </select>
+        </label>
+        <label>
+          Labels
+          <input v-model="draft.labelsText" class="input" :disabled="!canMutate" placeholder="frontend, urgent" />
+        </label>
         <div class="drawer-actions">
           <button class="button primary" type="submit" :disabled="!canMutate">Save card</button>
           <button class="button danger" type="button" :disabled="!canMutate" @click="deleteCard">Delete</button>
@@ -190,12 +217,26 @@ function acceptLatest() {
       </div>
 
       <div class="drawer-section">
+        <div class="section-title-row">
+          <h4>Checklist</h4>
+          <span v-if="checklistSummary.total" class="status-badge synced">{{ checklistSummary.completed }}/{{ checklistSummary.total }}</span>
+        </div>
+        <div v-if="checklistItems.length" class="drawer-checklist">
+          <label v-for="item in checklistItems" :key="item.id" class="checklist-toggle" :class="{ done: item.isDone }">
+            <input type="checkbox" :checked="item.isDone" :disabled="!canMutate" @change="toggleChecklistItem(item)" />
+            <span>{{ item.title }}</span>
+          </label>
+        </div>
+        <p v-else>No saved checklist items yet.</p>
+      </div>
+
+      <div class="drawer-section">
         <h4>Comments</h4>
         <form class="comment-form" @submit.prevent="addComment">
           <textarea v-model="commentDraft" class="input textarea compact-textarea" :disabled="!canMutate" placeholder="Add a comment"></textarea>
           <button class="button secondary" type="submit" :disabled="!canMutate || !commentDraft.trim()">Add comment</button>
         </form>
-        <p class="security-note">Comments are not part of the provided Supabase schema, so no sample comments are shown.</p>
+        <p class="security-note">Комментарии сохраняются в Supabase и обновляются через realtime.</p>
 
         <div v-for="comment in comments" :key="comment.id" class="comment">
           <span class="tiny-avatar" :style="{ '--ring': membersStore.memberById(comment.authorId).color }">

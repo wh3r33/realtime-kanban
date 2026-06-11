@@ -32,6 +32,7 @@ export const useMembersStore = defineStore("members", {
     presenceConnected: false,
     loading: false,
     errorMessage: "",
+    invitationsSupported: true,
     setupRequired: !isSupabaseConfigured
   }),
   getters: {
@@ -58,6 +59,13 @@ export const useMembersStore = defineStore("members", {
         return;
       }
       const { data, error } = await listBoardInvitations(boardId);
+      if (error?.code === "MIGRATION_REQUIRED") {
+        this.invitationsSupported = false;
+        this.invitations = [];
+        this.errorMessage = error.message;
+        return;
+      }
+      this.invitationsSupported = true;
       this.invitations = data || [];
       this.errorMessage = error?.message || "";
     },
@@ -115,14 +123,18 @@ export const useMembersStore = defineStore("members", {
     },
     async createInvitation(boardId, email, role) {
       if (!this.canManageMembers) return { error: new Error("Only owners can invite members.") };
-      const { data, error } = await createBoardInvitation(boardId, email, role);
+      if (!this.invitationsSupported) return { error: new Error("Invites require database migration.") };
+      const { data, error, duplicate } = await createBoardInvitation(boardId, email, role);
+      if (error?.code === "MIGRATION_REQUIRED") this.invitationsSupported = false;
       this.errorMessage = error?.message || "";
       if (!error && data) this.invitations = [data, ...this.invitations.filter((item) => item.id !== data.id)];
-      return { invitation: data, error };
+      return { invitation: data, error, duplicate };
     },
     async revokeInvitation(invitationId) {
       if (!this.canManageMembers) return { error: new Error("Only owners can revoke invitations.") };
+      if (!this.invitationsSupported) return { error: new Error("Invites require database migration.") };
       const { data, error } = await revokeBoardInvitation(invitationId);
+      if (error?.code === "MIGRATION_REQUIRED") this.invitationsSupported = false;
       this.errorMessage = error?.message || "";
       if (!error) this.invitations = this.invitations.filter((item) => item.id !== invitationId);
       return { invitation: data, error };
