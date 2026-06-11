@@ -1739,6 +1739,14 @@ a {
   background: rgba(255, 255, 255, 0.72);
 }
 
+.settings-helper-text {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .system-status-card strong {
   display: flex;
   align-items: center;

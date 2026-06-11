@@ -80,6 +80,38 @@
           </div>
         </article>
 
+        <article class="settings-section-card language-section">
+          <div class="section-title-row">
+            <div>
+              <p class="kicker">Localization</p>
+              <h2>Interface Language</h2>
+            </div>
+            <span class="status-badge synced">LANGUAGE SYNCED</span>
+          </div>
+          <div class="custom-select" data-custom-select data-select-kind="language">
+            <input type="hidden" name="interfaceLanguage" value="en" data-custom-select-value />
+            <button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" data-custom-select-trigger>
+              <span>
+                <small>Interface language</small>
+                <strong data-custom-select-title>English</strong>
+                <em data-custom-select-description>Default interface language</em>
+              </span>
+              <svg class="select-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+            </button>
+            <div class="custom-select-menu" role="listbox" data-custom-select-menu>
+              <button class="custom-select-option active" type="button" role="option" aria-selected="true" data-value="en" data-title="English" data-description="Default interface language">
+                <strong>English</strong>
+                <span>Default interface language</span>
+              </button>
+              <button class="custom-select-option" type="button" role="option" aria-selected="false" data-value="ru" data-title="Русский" data-description="Локализованный интерфейс">
+                <strong>Русский</strong>
+                <span>Локализованный интерфейс</span>
+              </button>
+            </div>
+          </div>
+          <p class="settings-helper-text">Language preference is stored locally for this prototype.</p>
+        </article>
+
         <article class="settings-section-card realtime-section">
           <div class="section-title-row">
             <div>

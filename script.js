@@ -451,13 +451,20 @@ function openCustomSelect(select) {
   trigger?.setAttribute("aria-expanded", "true");
 }
 
-function setCustomSelectOption(select, option) {
+const SETTINGS_LANGUAGE_STORAGE_KEY = "rk_language";
+const SETTINGS_LANGUAGE_TOASTS = {
+  en: "Language changed to English",
+  ru: "Язык изменён на русский"
+};
+
+function setCustomSelectOption(select, option, config = {}) {
   const valueInput = select.querySelector("[data-custom-select-value]");
   const title = select.querySelector("[data-custom-select-title]");
   const description = select.querySelector("[data-custom-select-description]");
   const options = Array.from(select.querySelectorAll("[data-custom-select-menu] [data-value]"));
+  const nextValue = option.dataset.value || "";
 
-  if (valueInput) valueInput.value = option.dataset.value || "";
+  if (valueInput) valueInput.value = nextValue;
   if (title) title.textContent = option.dataset.title || option.textContent.trim();
   if (description) description.textContent = option.dataset.description || "";
 
@@ -468,7 +475,26 @@ function setCustomSelectOption(select, option) {
   });
 
   closeCustomSelect(select);
+  if (config.silent) return;
+
+  if (select.dataset.selectKind === "language") {
+    localStorage.setItem(SETTINGS_LANGUAGE_STORAGE_KEY, nextValue);
+    showToast(SETTINGS_LANGUAGE_TOASTS[nextValue] || `Language changed to ${option.dataset.title}`);
+    return;
+  }
+
   showToast(`Conflict strategy set to ${option.dataset.title}`);
+}
+
+function initSettingsLanguage() {
+  if (document.body.dataset.page !== "settings") return;
+
+  const select = document.querySelector('[data-select-kind="language"]');
+  if (!select) return;
+
+  const savedLanguage = localStorage.getItem(SETTINGS_LANGUAGE_STORAGE_KEY) || "en";
+  const option = select.querySelector(`[data-value="${savedLanguage}"]`) || select.querySelector('[data-value="en"]');
+  if (option) setCustomSelectOption(select, option, { silent: true });
 }
 
 function initCustomSelects() {
@@ -638,6 +664,7 @@ function initStaticApp() {
   initOffline();
   initAiAssistant();
   initBoardCards();
+  initSettingsLanguage();
   initCustomSelects();
   initRealtimeStatus();
   initRoleToggles();
