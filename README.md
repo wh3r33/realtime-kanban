@@ -184,7 +184,7 @@ realtime-kanban/
 
 В коде нет явного распределения ответственности между участниками, поэтому ниже - рекомендуемая модель владения зонами проекта.
 
-| Участник | Рекомендуемая зона ответственности |
+| Участник | задачи |
 |---|---|
 | Прищепный Никита | Frontend / UI / UX: Vue views/components, responsive layout, дизайн-система, доступность, локализация. |
 | Наумов Никита | Supabase / Database / RLS: schema, migrations, RLS policies, RPC, Edge Functions, Storage. |
