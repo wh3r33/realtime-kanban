@@ -12,15 +12,17 @@ describe("auth store permissions", () => {
     auth.setBoardRole("owner");
 
     expect(auth.canManageWorkspace).toBe(true);
+    expect(auth.canInviteMembers).toBe(true);
     expect(auth.canMutateCards).toBe(true);
     expect(auth.isViewer).toBe(false);
   });
 
-  it("allows editors to mutate cards but not manage members", () => {
+  it("allows editors to invite and mutate cards but not manage members", () => {
     const auth = useAuthStore();
     auth.setBoardRole("editor");
 
     expect(auth.canManageWorkspace).toBe(false);
+    expect(auth.canInviteMembers).toBe(true);
     expect(auth.canMutateCards).toBe(true);
   });
 
@@ -29,6 +31,7 @@ describe("auth store permissions", () => {
     auth.setBoardRole("viewer");
 
     expect(auth.canManageWorkspace).toBe(false);
+    expect(auth.canInviteMembers).toBe(false);
     expect(auth.canMutateCards).toBe(false);
     expect(auth.isViewer).toBe(true);
   });

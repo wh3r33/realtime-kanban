@@ -6,7 +6,19 @@ function requireClient() {
 }
 
 function titleFor(action = "") {
+  if (action === "invite_created") return "Invite Created";
+  if (action === "invite_accepted") return "Invite Accepted";
+  if (action === "invite_declined") return "Invite Declined";
+  if (action === "invite_revoked") return "Invite Revoked";
   return action.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function bodyFor(row) {
+  if (row.action === "invite_created") return `Invitation sent to ${row.new_data?.email || "a teammate"}`;
+  if (row.action === "invite_accepted") return `${row.new_data?.email || "A teammate"} accepted the invitation`;
+  if (row.action === "invite_declined") return `${row.new_data?.email || "A teammate"} declined the invitation`;
+  if (row.action === "invite_revoked") return `Invitation revoked for ${row.old_data?.email || "a teammate"}`;
+  return row.new_data?.title || row.new_data?.description || row.entity_type || "";
 }
 
 function mapActivity(row) {
@@ -21,7 +33,7 @@ function mapActivity(row) {
     oldData: row.old_data,
     newData: row.new_data,
     title: titleFor(row.action),
-    body: row.new_data?.title || row.new_data?.description || row.entity_type || "",
+    body: bodyFor(row),
     createdAt: row.created_at ? new Date(row.created_at).toLocaleString() : ""
   };
 }

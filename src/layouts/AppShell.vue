@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, watch } from "vue";
+import { computed, onMounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import ActivityRail from "../components/ActivityRail.vue";
 import TaskDrawer from "../components/TaskDrawer.vue";
@@ -13,6 +13,7 @@ const route = useRoute();
 const authStore = useAuthStore();
 const boardsStore = useBoardsStore();
 const uiStore = useUiStore();
+const showActivityRail = computed(() => /^\/boards\/[^/]+\/?$/.test(route.path));
 
 watch(
   () => route.params.boardId,
@@ -33,10 +34,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="workspace-screen standalone active">
+  <section class="workspace-screen standalone active" :class="{ 'with-activity-rail': showActivityRail }">
     <div class="workspace-noise"></div>
     <TopBar />
-    <ActivityRail />
+    <ActivityRail v-if="showActivityRail" />
     <div class="workspace-shell">
       <RouterView />
     </div>

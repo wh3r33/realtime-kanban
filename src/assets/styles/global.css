@@ -3290,3 +3290,433 @@ a {
     transition-duration: 1ms !important;
   }
 }
+
+/* Responsive overflow fixes only: keeps existing visual design intact. */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+#app,
+.workspace-screen,
+.workspace-shell,
+.app-shell,
+.auth-shell,
+.system-shell {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.workspace-screen:not(.with-activity-rail) {
+  padding-right: 28px;
+}
+
+.workspace-screen.with-activity-rail {
+  padding-right: 350px;
+}
+
+p,
+span,
+strong,
+small,
+time,
+label,
+li,
+h1,
+h2,
+h3,
+h4,
+a,
+button {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+input,
+select,
+textarea,
+button {
+  max-width: 100%;
+}
+
+.page-header,
+.header-line,
+.section-title-row,
+.board-hero,
+.board-meta,
+.presence-cluster,
+.top-actions,
+.nav-capsule,
+.quick-card-form,
+.board-filters,
+.search-control-panel,
+.page-grid,
+.stats-grid,
+.boards-grid,
+.search-results,
+.notification-list,
+.settings-stack,
+.members-layout,
+.members-list,
+.roles-rail,
+.settings-control-grid,
+.system-status-grid,
+.role-permission-list,
+.board-layout,
+.column,
+.column-header,
+.card-list,
+.task-card,
+.card-badges,
+.card-meta,
+.assignee,
+.ownership-line,
+.card-checklist-preview,
+.empty-state,
+.activity-rail,
+.rail-section,
+.rail-heading-row,
+.ai-rail-panel,
+.ai-action-row,
+.ai-rail-results,
+.editing-now,
+.activity-feed,
+.editing-item,
+.activity-item,
+.task-drawer,
+.drawer-header,
+.drawer-content,
+.drawer-block,
+.drawer-section,
+.drawer-row,
+.drawer-actions,
+.comment,
+.comment p,
+.comment-form,
+.comment-actions,
+.toast,
+.toast span,
+.panel,
+.board-card,
+.member-card,
+.member-card-enhanced,
+.result-card,
+.notification,
+.notification > div,
+.notification-actions,
+.stat-card,
+.loading-panel,
+.form-card,
+.profile-hero,
+.profile-hero-copy,
+.profile-grid,
+.profile-avatar-row,
+.profile-avatar-copy,
+.avatar-upload,
+.avatar-upload-actions,
+.settings-section-card,
+.danger-zone-card,
+.system-status-card,
+.setting-line,
+.danger-action-row,
+.invite-list,
+.invite-row,
+.queue-item,
+.custom-select,
+.custom-select-trigger,
+.custom-select-menu,
+.custom-select-option,
+.modal,
+.modal-body,
+.modal-form,
+.modal-actions,
+.conflict-panel,
+.conflict-preview {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.panel,
+.board-card,
+.member-card,
+.member-card-enhanced,
+.result-card,
+.notification,
+.stat-card,
+.loading-panel,
+.form-card,
+.settings-section-card,
+.danger-zone-card,
+.system-status-card,
+.task-card,
+.column,
+.activity-rail,
+.task-drawer,
+.modal,
+.toast,
+.invite-row,
+.queue-item,
+.editing-item,
+.activity-item,
+.comment,
+.empty-state,
+.custom-select-trigger,
+.custom-select-menu,
+.ai-action-row,
+.ai-rail-results,
+.card-checklist-preview,
+.ownership-line {
+  overflow: hidden;
+}
+
+.panel *,
+.board-card *,
+.member-card *,
+.member-card-enhanced *,
+.result-card *,
+.notification *,
+.stat-card *,
+.loading-panel *,
+.form-card *,
+.settings-section-card *,
+.danger-zone-card *,
+.system-status-card *,
+.task-card *,
+.column *,
+.activity-rail *,
+.task-drawer *,
+.modal *,
+.toast *,
+.invite-row *,
+.queue-item *,
+.editing-item *,
+.activity-item *,
+.comment *,
+.empty-state *,
+.timeline *,
+.presence-strip *,
+.realtime-mini-feed * {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.timeline article,
+.activity-item,
+.editing-item,
+.notification,
+.member-main-row,
+.member-name-row,
+.presence-strip,
+.presence-strip > div,
+.presence-badges,
+.realtime-mini-feed,
+.setting-line,
+.danger-action-row,
+.invite-row,
+.queue-item,
+.comment,
+.drawer-row,
+.card-meta,
+.assignee {
+  min-width: 0;
+}
+
+.timeline article > *,
+.activity-item > *,
+.editing-item > *,
+.notification > *,
+.member-main-row > *,
+.presence-strip > *,
+.setting-line > *,
+.danger-action-row > *,
+.invite-row > *,
+.queue-item > *,
+.comment > *,
+.drawer-row > *,
+.card-meta > *,
+.assignee > * {
+  min-width: 0;
+}
+
+.timeline p,
+.timeline strong,
+.timeline span,
+.timeline time,
+.activity-item strong,
+.activity-item span,
+.editing-item strong,
+.editing-item span,
+.notification strong,
+.notification p,
+.notification time,
+.member-identity,
+.member-identity h2,
+.member-identity p,
+.realtime-mini-feed span,
+.presence-strip strong,
+.presence-strip span,
+.setting-line strong,
+.danger-action-row strong,
+.invite-row strong,
+.invite-row span,
+.queue-item strong,
+.drawer-row strong,
+.drawer-row span,
+.comment p,
+.comment small {
+  max-width: 100%;
+  white-space: normal;
+}
+
+.card-list,
+.drawer-content,
+.activity-rail,
+.activity-feed,
+.editing-now,
+.modal,
+.custom-select-menu {
+  overscroll-behavior: contain;
+}
+
+.board-layout {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.column {
+  max-width: min(296px, 86vw);
+}
+
+.task-card h3,
+.task-card p,
+.card-checklist-preview li,
+.ownership-line {
+  max-width: 100%;
+}
+
+.profile-avatar-copy,
+.avatar-file-chip,
+.share-line strong,
+.system-status-card strong {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (max-width: 1199px) {
+  .workspace-screen {
+    display: flex;
+    flex-direction: column;
+    padding-right: 28px;
+    padding-bottom: 34px;
+    overflow-x: hidden;
+  }
+
+  .workspace-shell {
+    order: 1;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .activity-rail {
+    position: static;
+    order: 2;
+    width: 100%;
+    height: auto;
+    max-height: none;
+    margin-top: 18px;
+    overflow: visible;
+  }
+
+  .activity-feed,
+  .editing-now {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    overflow: visible;
+  }
+
+  .toast-stack {
+    right: 22px;
+    bottom: 22px;
+    width: min(360px, calc(100vw - 44px));
+  }
+}
+
+@media (max-width: 768px) {
+  .workspace-screen {
+    padding-right: 14px;
+    padding-left: 14px;
+    overflow-x: hidden;
+  }
+
+  .activity-rail {
+    order: 2;
+    width: 100%;
+    margin-top: 16px;
+  }
+
+  .activity-feed,
+  .editing-now {
+    grid-template-columns: 1fr;
+  }
+
+  .presence-strip,
+  .header-line,
+  .section-title-row,
+  .member-main-row,
+  .setting-line,
+  .danger-action-row,
+  .invite-row,
+  .notification {
+    min-width: 0;
+  }
+
+  .realtime-mini-feed {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  .realtime-mini-feed span {
+    flex: 1 1 100%;
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .board-card,
+  .panel,
+  .result-card,
+  .member-card,
+  .member-card-enhanced,
+  .notification,
+  .form-card,
+  .settings-section-card,
+  .danger-zone-card {
+    max-width: 100%;
+  }
+
+  .notification-actions {
+    width: 100%;
+  }
+}
+
+@media (max-width: 430px) {
+  .workspace-screen {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .board-layout {
+    width: 100%;
+  }
+
+  .column {
+    flex-basis: min(260px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
+  }
+
+  .task-drawer,
+  .modal,
+  .toast-stack {
+    max-width: calc(100vw - 24px);
+  }
+}

@@ -36,6 +36,7 @@ export const useAuthStore = defineStore("auth", {
     isAuthenticated: (state) => state.session.status === "authenticated",
     isAuthReady: (state) => state.initialized && state.session.status !== "loading",
     canManageWorkspace: (state) => state.currentRole === "owner",
+    canInviteMembers: (state) => ["owner", "editor"].includes(state.currentRole),
     canMutateCards: (state) => ["owner", "editor"].includes(state.currentRole),
     isViewer: (state) => state.currentRole === "viewer"
   },

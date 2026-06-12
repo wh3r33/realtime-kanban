@@ -24,7 +24,8 @@ function mapRpcError(error: { message?: string; code?: string } | null) {
   const message = error?.message || "Internal error";
   if (/permission_denied|permission|rls|row-level/i.test(message)) return { status: 403, message: "You do not have permission to invite members to this board." };
   if (/invalid_role/i.test(message)) return { status: 400, message: "Role must be viewer or editor." };
-  if (error?.code === "23505" || /duplicate|unique/i.test(message)) return { status: 409, message: "A pending invite already exists for this email." };
+  if (/already_member/i.test(message)) return { status: 409, message: "This user is already a board member." };
+  if (error?.code === "23505" || /invite_already_exists|duplicate|unique/i.test(message)) return { status: 409, message: "A pending invite already exists for this email." };
   if (/invalid input syntax for type uuid/i.test(message)) return { status: 400, message: "board_id must be a valid UUID." };
   return { status: 500, message };
 }
@@ -81,14 +82,34 @@ Deno.serve(async (req) => {
       const mapped = mapRpcError(membershipError);
       return json({ error: mapped.message }, mapped.status === 500 ? 403 : mapped.status);
     }
-    if (membership?.role !== "owner") return json({ error: "Only board owners can invite members." }, 403);
+    if (!["owner", "editor"].includes(membership?.role || "")) return json({ error: "Only board owners and editors can invite members." }, 403);
+
+    const { data: memberProfile, error: memberProfileError } = await adminClient
+      .from("profiles")
+      .select("id")
+      .ilike("email", email)
+      .maybeSingle();
+
+    if (memberProfileError) return json({ error: memberProfileError.message }, 500);
+    if (memberProfile) {
+      const { data: existingMember, error: existingMemberError } = await adminClient
+        .from("board_members")
+        .select("user_id")
+        .eq("board_id", boardId)
+        .eq("user_id", memberProfile.id)
+        .maybeSingle();
+      if (existingMemberError) return json({ error: existingMemberError.message }, 500);
+      if (existingMember) return json({ error: "This user is already a board member." }, 409);
+    }
 
     const { data: existing, error: duplicateLookupError } = await adminClient
       .from("board_invites")
       .select("*")
       .eq("board_id", boardId)
-      .eq("email", email)
+      .ilike("email", email)
       .is("accepted_at", null)
+      .is("declined_at", null)
+      .is("revoked_at", null)
       .gt("expires_at", new Date().toISOString())
       .maybeSingle();
 
