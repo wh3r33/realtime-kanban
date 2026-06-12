@@ -1,23 +1,56 @@
 <script setup>
+import { onMounted } from "vue";
 import { useUiStore } from "../stores/ui";
+import { t } from "../services/localization";
 
 const uiStore = useUiStore();
+
+function formatDate(value) {
+  return value ? new Date(value).toLocaleString() : "";
+}
+
+async function acceptInvite(invitation) {
+  const result = await uiStore.acceptInvitation(invitation.id);
+  uiStore.showToast(result.error ? result.error.message : t("messages.inviteAccepted", { board: invitation.boardName }));
+}
+
+async function declineInvite(invitation) {
+  const result = await uiStore.declineInvitation(invitation.id);
+  uiStore.showToast(result.error ? result.error.message : t("messages.inviteDeclined", { board: invitation.boardName }));
+}
+
+onMounted(() => {
+  uiStore.loadPendingInvitations();
+});
 </script>
 
 <template>
   <section class="page-header">
     <div class="header-line">
-      <p class="kicker">Notifications</p>
+      <p class="kicker">{{ t("notifications.title") }}</p>
       <div class="board-meta">
-        <span class="status-badge live">{{ uiStore.unreadNotifications.length }} UNREAD</span>
-        <span class="status-badge viewer">NOT CONNECTED</span>
+        <span class="status-badge live">{{ t("notifications.unread", { count: uiStore.unreadNotifications.length }) }}</span>
+        <span class="status-badge synced">{{ t("notifications.connected") }}</span>
       </div>
     </div>
-    <h1>Realtime events that need attention.</h1>
-    <p>Notifications are empty until a real notification table or service is connected.</p>
+    <h1>{{ t("notifications.heading") }}</h1>
+    <p>{{ t("notifications.body") }}</p>
   </section>
 
   <section class="notification-list">
+    <article v-for="invitation in uiStore.pendingInvitations" :key="invitation.id" class="notification invite unread">
+      <div>
+        <strong>{{ t("notifications.boardInvite", { board: invitation.boardName }) }}</strong>
+        <p>{{ t("notifications.invitedBy", { inviter: invitation.inviterName, email: invitation.inviterEmail || invitation.inviterName }) }}</p>
+        <p>{{ t("notifications.invitedRole", { role: invitation.role }) }}</p>
+        <time>{{ formatDate(invitation.createdAt) }}</time>
+      </div>
+      <div class="notification-actions">
+        <button class="button primary" type="button" @click="acceptInvite(invitation)">{{ t("notifications.accept") }}</button>
+        <button class="button secondary" type="button" @click="declineInvite(invitation)">{{ t("notifications.decline") }}</button>
+      </div>
+    </article>
+
     <article
       v-for="notification in uiStore.notifications"
       :key="notification.id"
@@ -37,9 +70,9 @@ const uiStore = useUiStore();
         {{ notification.unread ? "UNREAD" : "READ" }}
       </span>
     </article>
-    <div v-if="!uiStore.notifications.length" class="empty-state informative">
-      <strong>No notifications</strong>
-      <span>No fake notifications are shown.</span>
+    <div v-if="!uiStore.pendingInvitations.length && !uiStore.notifications.length" class="empty-state informative">
+      <strong>{{ t("notifications.none") }}</strong>
+      <span>{{ t("notifications.noneBody") }}</span>
     </div>
   </section>
 </template>

@@ -22,6 +22,7 @@ function mapRpcError(error: { message?: string } | null) {
   if (/invite_not_found_or_expired/i.test(message)) return { status: 404, message: "Invitation was not found or has expired." };
   if (/email_mismatch/i.test(message)) return { status: 403, message: "Sign in with the invited email address to accept this invitation." };
   if (/profile_not_found/i.test(message)) return { status: 400, message: "Authenticated profile was not found." };
+  if (/already_member/i.test(message)) return { status: 409, message: "This user is already a board member." };
   if (/permission_denied|permission|rls|row-level/i.test(message)) return { status: 403, message: "You do not have permission to accept this invitation." };
   return { status: 500, message };
 }
@@ -71,6 +72,7 @@ Deno.serve(async (req) => {
     if (inviteError) return json({ error: inviteError.message }, 500);
     if (!invite) return json({ error: "Invitation not found" }, 404);
     if (invite.accepted_at) return json({ error: "Invitation has already been accepted" }, 409);
+    if (invite.declined_at || invite.revoked_at) return json({ error: "Invitation was revoked or declined" }, 400);
     if (new Date(invite.expires_at).getTime() <= Date.now()) return json({ error: "Invitation has expired" }, 400);
     if (String(invite.email).toLowerCase() !== user.email.toLowerCase()) {
       return json({ error: "Sign in with the invited email address to accept this invitation." }, 403);
@@ -100,16 +102,6 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (memberError) return json({ error: memberError.message }, 500);
-
-    await adminClient.from("activity_logs").insert({
-      board_id: invite.board_id,
-      user_id: user.id,
-      action: "invite_accepted",
-      entity_type: "board_invite",
-      entity_id: invite.id,
-      old_data: invite,
-      new_data: accepted
-    });
 
     return json({ status: "ok", invite: { ...invite, accepted_at: new Date().toISOString() }, board: accepted, member }, 200);
   } catch (error) {

@@ -245,7 +245,7 @@ const messages = {
       shareLink: "Share Link",
       inviteMember: "Invite member",
       noCollaborators: "No collaborators yet",
-      noCollaboratorsBody: "Only real board_members rows are shown. Use owner-only invitations to add collaborators.",
+      noCollaboratorsBody: "Only real board_members rows are shown. Owners and editors can add collaborators with invitations.",
       noPendingInvites: "No pending invitations",
       noPendingInvitesBody: "Owner-created invitations will appear here.",
       invitesNeedMigration: "Invites require database migration.",
@@ -265,7 +265,8 @@ const messages = {
       presenceUnavailable: "Presence unavailable",
       activeSignals: "active editing signal",
       noActiveSignals: "No active editing signals",
-      invitedBy: "Invite a member"
+      invitedBy: "Invite a member",
+      expires: "expires"
     },
     activity: {
       title: "History of Changes",
@@ -277,6 +278,20 @@ const messages = {
       system: "System",
       noActivity: "No activity",
       noActivityBody: "No Supabase activity log rows match this filter."
+    },
+    notifications: {
+      title: "Notifications",
+      heading: "Invitations that need attention.",
+      body: "Pending board invites are loaded directly from Supabase when this page opens.",
+      unread: "{count} UNREAD",
+      connected: "DATABASE FALLBACK",
+      boardInvite: "Invitation to {board}",
+      invitedBy: "Invited by {inviter} ({email})",
+      invitedRole: "Role: {role}",
+      accept: "Accept",
+      decline: "Decline",
+      none: "No notifications",
+      noneBody: "Pending invitations for your email will appear here."
     },
     ai: {
       title: "AI assistant",
@@ -316,6 +331,8 @@ const messages = {
       inviteCreated: "Invite created for {email}",
       inviteDuplicate: "Invitation for {email} already exists",
       inviteRevoked: "Invite revoked for {email}",
+      inviteAccepted: "Invite accepted for {board}",
+      inviteDeclined: "Invite declined for {board}",
       memberRemoved: "{name} removed",
       roleChanged: "{name} changed to {role}",
       boardOpened: "{name} opened",
@@ -661,6 +678,24 @@ const messages = {
   }
 };
 
+const ruOverrides = {
+  "members.expires": "истекает",
+  "notifications.title": "Уведомления",
+  "notifications.heading": "Приглашения, требующие решения.",
+  "notifications.body": "Ожидающие приглашения на доски загружаются напрямую из Supabase при открытии страницы.",
+  "notifications.unread": "{count} НЕПРОЧИТАНО",
+  "notifications.connected": "РЕЗЕРВ ЧЕРЕЗ БАЗУ",
+  "notifications.boardInvite": "Приглашение на доску {board}",
+  "notifications.invitedBy": "Пригласил(а) {inviter} ({email})",
+  "notifications.invitedRole": "Роль: {role}",
+  "notifications.accept": "Принять",
+  "notifications.decline": "Отклонить",
+  "notifications.none": "Нет уведомлений",
+  "notifications.noneBody": "Ожидающие приглашения для вашего email появятся здесь.",
+  "messages.inviteAccepted": "Приглашение на {board} принято",
+  "messages.inviteDeclined": "Приглашение на {board} отклонено"
+};
+
 function savedLanguage() {
   if (typeof window === "undefined") return "en";
   return window.localStorage.getItem(STORAGE_KEY) || "en";
@@ -682,6 +717,7 @@ watch(language, (next) => {
 }, { immediate: true });
 
 function resolveMessage(path, locale) {
+  if (locale === "ru" && Object.prototype.hasOwnProperty.call(ruOverrides, path)) return ruOverrides[path];
   const parts = path.split(".");
   let node = messages[locale];
   for (const part of parts) node = node?.[part];

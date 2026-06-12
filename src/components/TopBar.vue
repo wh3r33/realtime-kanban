@@ -7,6 +7,8 @@ import { useAuthStore } from "../stores/auth";
 import { useMembersStore } from "../stores/members";
 import { useUiStore } from "../stores/ui";
 import { t } from "../services/localization";
+import notificationNoneIcon from "../assets/img/notification-none.svg";
+import notificationIcon from "../assets/img/notification.svg";
 
 const authStore = useAuthStore();
 const boardsStore = useBoardsStore();
@@ -17,6 +19,8 @@ const boardBasePath = computed(() => (boardsStore.selectedBoard ? `/boards/${boa
 const onlineLabel = computed(() =>
   membersStore.presenceConnected ? `${membersStore.onlineMembers.length} ${t("members.online")}` : membersStore.presenceMessage
 );
+const hasUnreadNotifications = computed(() => uiStore.unreadNotifications.length > 0);
+const notificationButtonIcon = computed(() => (hasUnreadNotifications.value ? notificationIcon : notificationNoneIcon));
 
 async function undo() {
   const action = await cardsStore.undoLastAction();
@@ -57,9 +61,9 @@ async function redo() {
     <div class="top-actions">
       <button class="ghost-button" type="button" :disabled="!cardsStore.undoHistory.length" @click="undo">{{ t("common.undo") }}</button>
       <button class="ghost-button" type="button" :disabled="!cardsStore.redoHistory.length" @click="redo">{{ t("common.redo") }}</button>
-      <button class="ghost-button" type="button" :disabled="!membersStore.invitationsSupported" @click="uiStore.showToast(membersStore.invitationsSupported ? t('common.invite') : t('members.invitesNeedMigration'))">{{ t("common.invite") }}</button>
-      <RouterLink class="icon-button" to="/bonus/notifications" :aria-label="t('common.unreadNotifications', { count: uiStore.unreadNotifications.length })">
-        <span v-if="uiStore.unreadNotifications.length" class="notification-dot"></span>
+      <RouterLink class="icon-button notification-button" to="/bonus/notifications" :aria-label="t('common.unreadNotifications', { count: uiStore.unreadNotifications.length })" :title="t('common.unreadNotifications', { count: uiStore.unreadNotifications.length })">
+        <img class="notification-icon" :src="notificationButtonIcon" alt="" aria-hidden="true" />
+        <span v-if="hasUnreadNotifications" class="notification-dot"></span>
       </RouterLink>
       <RouterLink class="profile-button" to="/profile" :title="`${authStore.currentUserName || t('nav.profile')} · ${authStore.currentRole}`" :aria-label="`${authStore.currentUserName || t('nav.profile')} · ${authStore.currentRole}`">
         <UserAvatar class="profile-button-avatar" :src="authStore.profile?.avatar_url || ''" :name="authStore.currentUserName" :initials="authStore.currentUserName.slice(0, 2).toUpperCase()" fill />
@@ -67,3 +71,17 @@ async function redo() {
     </div>
   </header>
 </template>
+
+<style scoped>
+.notification-button {
+  flex: 0 0 auto;
+}
+
+.notification-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  pointer-events: none;
+}
+</style>

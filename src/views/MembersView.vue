@@ -15,7 +15,7 @@ const inviteForm = reactive({ email: "", role: "viewer" });
 
 const selectedBoard = computed(() => boardsStore.selectedBoard);
 const canManage = computed(() => authStore.canManageWorkspace);
-const canInvite = computed(() => canManage.value && membersStore.invitationsSupported);
+const canInvite = computed(() => authStore.canInviteMembers && membersStore.invitationsSupported);
 const roleDescriptions = computed(() => ({
   owner: t("members.owner"),
   editor: t("members.editor"),
@@ -166,7 +166,7 @@ onMounted(async () => {
           <div v-for="invitation in membersStore.invitations" :key="invitation.id" class="invite-row">
             <div>
               <strong>{{ invitation.email }}</strong>
-              <span>{{ invitation.role }} · expires {{ new Date(invitation.expiresAt).toLocaleDateString() }}</span>
+              <span>{{ invitation.role }} - {{ t("members.expires") }} {{ new Date(invitation.expiresAt).toLocaleDateString() }}</span>
             </div>
             <button class="button secondary" type="button" :disabled="!canInvite" @click="revokeInvite(invitation)">Revoke</button>
           </div>

@@ -52,7 +52,8 @@ export const useMembersStore = defineStore("members", {
     memberById: (state) => (memberId) => state.members.find((member) => member.id === memberId) || fallbackMember,
     lockForCard: (state) => (cardId) => state.locks.find((lock) => lock.cardId === cardId),
     editorForCard: (state) => (cardId) => state.editingUsers.find((presence) => presence.cardId === cardId),
-    canManageMembers: () => useAuthStore().canManageWorkspace
+    canManageMembers: () => useAuthStore().canManageWorkspace,
+    canInviteMembers: () => useAuthStore().canInviteMembers
   },
   actions: {
     async loadMembers(boardId) {
@@ -66,7 +67,7 @@ export const useMembersStore = defineStore("members", {
       this.loading = false;
     },
     async loadInvitations(boardId) {
-      if (this.setupRequired || !boardId || !this.canManageMembers) {
+      if (this.setupRequired || !boardId || !this.canInviteMembers) {
         this.invitations = [];
         return;
       }
@@ -170,7 +171,7 @@ export const useMembersStore = defineStore("members", {
       this.members = this.members.map((member) => ({ ...member, presence: "offline" }));
     },
     async createInvitation(boardId, email, role) {
-      if (!this.canManageMembers) return { error: new Error("Only owners can invite members.") };
+      if (!this.canInviteMembers) return { error: new Error("Only owners and editors can invite members.") };
       if (!this.invitationsSupported) return { error: new Error("Invites require database migration.") };
       const { data, error, duplicate } = await createBoardInvitation(boardId, email, role);
       if (error?.code === "MIGRATION_REQUIRED") this.invitationsSupported = false;
@@ -179,7 +180,7 @@ export const useMembersStore = defineStore("members", {
       return { invitation: data, error, duplicate };
     },
     async revokeInvitation(invitationId) {
-      if (!this.canManageMembers) return { error: new Error("Only owners can revoke invitations.") };
+      if (!this.canInviteMembers) return { error: new Error("Only owners and editors can revoke invitations.") };
       if (!this.invitationsSupported) return { error: new Error("Invites require database migration.") };
       const { data, error } = await revokeBoardInvitation(invitationId);
       if (error?.code === "MIGRATION_REQUIRED") this.invitationsSupported = false;

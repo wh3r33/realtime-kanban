@@ -231,7 +231,7 @@ onBeforeUnmount(() => {
         <div v-for="invitation in membersStore.invitations" :key="invitation.id" class="invite-row">
           <div>
             <strong>{{ invitation.email }}</strong>
-            <span>{{ invitation.role }} · expires {{ new Date(invitation.expiresAt).toLocaleDateString() }}</span>
+            <span>{{ invitation.role }} - {{ t("members.expires") }} {{ new Date(invitation.expiresAt).toLocaleDateString() }}</span>
           </div>
         </div>
         <div v-if="!membersStore.invitations.length" class="empty-state compact">
