@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { generateAiSubtasks, prioritizeBoardCards } from "../services/aiAssistantService";
+import { t } from "../services/localization";
 import { useAuthStore } from "../stores/auth";
 import { useBoardsStore } from "../stores/boards";
 import { useCardsStore } from "../stores/cards";
@@ -31,8 +32,8 @@ const currentBoardCards = computed(() =>
 );
 const selectedCard = computed(() => currentBoardCards.value.find((card) => card.id === selectedCardId.value) || currentBoardCards.value[0] || null);
 const savedChecklistItems = computed(() => (selectedCard.value ? cardsStore.checklistForCard(selectedCard.value.id) : []));
-const modeLabel = computed(() => (mode.value === "subtasks" ? "Break card into subtasks" : "Prioritize board"));
-const actionLabel = computed(() => (loading.value ? "Generating..." : "Generate"));
+const modeLabel = computed(() => (mode.value === "subtasks" ? t("ai.subtasks") : t("ai.priority")));
+const actionLabel = computed(() => (loading.value ? t("ai.generating") : t("ai.generate")));
 const canGenerate = computed(() => !loading.value && (mode.value === "priority" ? currentBoardCards.value.length > 0 : Boolean(selectedCard.value)));
 const canSave = computed(() => mode.value === "subtasks" && outputItems.value.length > 0 && selectedCard.value?.id && authStore.canMutateCards && !saving.value);
 
@@ -90,11 +91,11 @@ async function generateRecommendations() {
           });
 
     outputItems.value = items;
-    uiStore.showToast("AI подготовил рекомендации");
+    uiStore.showToast(mode.value === "subtasks" ? t("ai.aiPreparedSubtasks") : t("ai.aiPreparedPriorities"));
   } catch (error) {
     outputItems.value = [];
-    pageError.value = `Ошибка AI: ${error.message || "попробуйте позже"}`;
-    uiStore.showToast("Ошибка AI");
+    pageError.value = `AI error: ${error.message || "try again later"}`;
+    uiStore.showToast("AI error");
   } finally {
     loading.value = false;
   }
@@ -107,15 +108,15 @@ async function saveGeneratedItems() {
   const result = await cardsStore.saveChecklistItemsToCard(selectedCard.value.id, outputItems.value);
   saving.value = false;
   if (result.error === "viewer") {
-    pageError.value = "У вас нет прав на сохранение подзадач";
+    pageError.value = "You do not have permission to save subtasks";
     return;
   }
   if (result.error) {
-    pageError.value = result.error.code === "MIGRATION_REQUIRED" ? result.error.message : `Ошибка сохранения: ${result.error.message || result.error}`;
+    pageError.value = result.error.code === "MIGRATION_REQUIRED" ? result.error.message : `Save failed: ${result.error.message || result.error}`;
     return;
   }
-  pageMessage.value = result.items.length ? "AI subtasks saved to card" : "Подзадачи уже есть в карточке";
-  uiStore.showToast("AI subtasks saved to card");
+  pageMessage.value = result.items.length ? t("ai.aiSaved") : "Subtasks already exist on the card";
+  uiStore.showToast(t("ai.aiSaved"));
 }
 
 onMounted(async () => {
@@ -134,8 +135,8 @@ onMounted(async () => {
 <template>
   <section class="board-hero" data-component="AiAssistantHeader">
     <div>
-      <p class="kicker">AI assistant</p>
-      <h2>Assist the board without exposing secrets.</h2>
+      <p class="kicker">{{ t("ai.title") }}</p>
+      <h2>{{ t("ai.body") }}</h2>
     </div>
     <div class="board-meta">
       <span class="status-badge synced">SUPABASE FUNCTION</span>
@@ -149,25 +150,25 @@ onMounted(async () => {
   </section>
 
   <section v-else-if="pageLoading" class="panel empty-state informative">
-    <strong>Loading board</strong>
+    <strong>{{ t("board.loading") }}</strong>
     <span>Reading board columns and cards before sending context to the Edge Function.</span>
   </section>
 
   <section v-else-if="!selectedBoard" class="panel empty-state informative">
-    <strong>No board selected</strong>
-    <span>Open a board first to use AI with real cards.</span>
-    <RouterLink class="button secondary" to="/boards">Open boards</RouterLink>
+    <strong>{{ t("ai.noBoardSelected") }}</strong>
+    <span>{{ t("ai.addCardsFirst") }}</span>
+    <RouterLink class="button secondary" to="/boards">{{ t("ai.openBoards") }}</RouterLink>
   </section>
 
   <section v-else class="page-grid two-col ai-workspace" data-component="AiAssistant">
     <div class="panel ai-panel">
       <div class="segmented" role="tablist" aria-label="AI mode">
-        <button type="button" :class="{ active: mode === 'subtasks' }" @click="mode = 'subtasks'">Break card into subtasks</button>
-        <button type="button" :class="{ active: mode === 'priority' }" @click="mode = 'priority'">Prioritize board</button>
+        <button type="button" :class="{ active: mode === 'subtasks' }" @click="mode = 'subtasks'">{{ t("ai.subtasks") }}</button>
+        <button type="button" :class="{ active: mode === 'priority' }" @click="mode = 'priority'">{{ t("ai.priority") }}</button>
       </div>
 
       <label v-if="mode === 'subtasks'">
-        Card
+        {{ t("ai.selectedCard") }}
         <select v-model="selectedCardId" class="input" :disabled="!currentBoardCards.length || loading">
           <option v-for="card in currentBoardCards" :key="card.id" :value="card.id">
             {{ card.title }}
@@ -176,7 +177,7 @@ onMounted(async () => {
       </label>
 
       <label>
-        Prompt
+        {{ t("ai.prompt") }}
         <textarea v-model="prompt" class="input textarea" :disabled="loading"></textarea>
       </label>
 
@@ -184,7 +185,7 @@ onMounted(async () => {
         {{ actionLabel }}
       </button>
 
-      <p class="security-note">DeepSeek is called only by the Supabase Edge Function. The frontend sends board context, never a provider key.</p>
+      <p class="security-note">{{ t("ai.deepSeekNote") }}</p>
     </div>
 
     <div class="panel">
@@ -193,48 +194,48 @@ onMounted(async () => {
           <p class="kicker">{{ selectedBoard.name }}</p>
           <h2>{{ modeLabel }}</h2>
         </div>
-        <span class="status-badge" :class="mode === 'subtasks' ? 'live' : 'synced'">{{ currentBoardCards.length }} CARDS</span>
+        <span class="status-badge" :class="mode === 'subtasks' ? 'live' : 'synced'">{{ t("ai.noCardsInScope", { count: currentBoardCards.length }) }}</span>
       </div>
 
       <div v-if="selectedCard" class="task-card static">
         <span class="status-badge live">{{ selectedCard.column }}</span>
         <h3>{{ selectedCard.title }}</h3>
-        <p>{{ selectedCard.description || "No description provided." }}</p>
+        <p>{{ selectedCard.description || t("ai.noDescription") }}</p>
       </div>
 
       <section v-else class="empty-state informative">
-        <strong>No cards available</strong>
-        <span>Add cards to this board before asking AI for subtasks or prioritization.</span>
+        <strong>{{ t("ai.noCardsAvailable") }}</strong>
+        <span>{{ t("ai.addCardsFirst") }}</span>
       </section>
 
       <div v-if="pageError" class="empty-state error-state compact" role="alert">
-        <strong>Ошибка</strong>
+        <strong>{{ t("common.error") }}</strong>
         <span>{{ pageError }}</span>
       </div>
       <div v-if="pageMessage" class="empty-state compact">
         <strong>{{ pageMessage }}</strong>
-        <span>Saved checklist items are visible on the board card and in the card drawer.</span>
+        <span>{{ t("ai.savedChecklist") }}</span>
       </div>
 
-      <h2>Generated results</h2>
+      <h2>{{ t("ai.generated") }}</h2>
       <ul v-if="outputItems.length" class="checklist" aria-live="polite">
         <li v-for="item in outputItems" :key="item">{{ item }}</li>
       </ul>
       <section v-else class="empty-state informative compact">
-        <strong>No generated results yet</strong>
-        <span>Choose a mode and click Generate. Results are separate from saved checklist items.</span>
+        <strong>{{ t("ai.noGenerated") }}</strong>
+        <span>{{ t("ai.chooseModeAndGenerate") }}</span>
       </section>
       <button v-if="mode === 'subtasks'" class="button primary" type="button" :disabled="!canSave" @click="saveGeneratedItems">
-        {{ saving ? "Saving..." : "Save to card" }}
+        {{ saving ? t("common.saving") : t("ai.saveToCard") }}
       </button>
 
-      <h2>Saved checklist items</h2>
+      <h2>{{ t("ai.savedChecklist") }}</h2>
       <ul v-if="savedChecklistItems.length" class="checklist saved-checklist">
         <li v-for="item in savedChecklistItems" :key="item.id" :class="{ done: item.isDone }">{{ item.title }}</li>
       </ul>
       <section v-else class="empty-state informative compact">
-        <strong>No saved checklist yet</strong>
-        <span>Generated subtasks become board data only after Save to card.</span>
+        <strong>{{ t("ai.noSavedChecklist") }}</strong>
+        <span>{{ t("ai.chooseModeAndGenerate") }}</span>
       </section>
     </div>
   </section>

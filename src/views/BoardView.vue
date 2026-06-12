@@ -7,6 +7,7 @@ import { useBoardsStore } from "../stores/boards";
 import { useCardsStore } from "../stores/cards";
 import { useMembersStore } from "../stores/members";
 import { useUiStore } from "../stores/ui";
+import { t } from "../services/localization";
 
 const authStore = useAuthStore();
 const boardsStore = useBoardsStore();
@@ -81,21 +82,21 @@ function labelsFromText(value) {
 async function moveTask(columnId, toIndex = Number.POSITIVE_INFINITY) {
   if (!canMutate.value) {
     draggedTaskId.value = null;
-    uiStore.showToast("Viewer role can view cards only");
+    uiStore.showToast(t("board.viewerReadOnlyShort"));
     return;
   }
   const action = await cardsStore.moveTask(draggedTaskId.value, columnId, toIndex);
   draggedTaskId.value = null;
   if (action?.error === "viewer") {
-    uiStore.showToast("Viewer role can view cards only");
+    uiStore.showToast(t("board.viewerReadOnlyShort"));
     return;
   }
   if (action?.error === "conflict") {
-    uiStore.showToast("Конфликт версии: карточка уже изменена другим пользователем");
+    uiStore.showToast(t("board.versionConflict"));
     return;
   }
   if (action?.error) {
-    uiStore.showToast(action.error.message || "Ошибка перемещения карточки");
+    uiStore.showToast(action.error.message || t("board.cardMoveFailed"));
     return;
   }
   if (!action) return;
@@ -106,7 +107,7 @@ async function moveTask(columnId, toIndex = Number.POSITIVE_INFINITY) {
 
 async function moveTaskByKeyboard(task, direction) {
   if (!canMutate.value) {
-    uiStore.showToast("Viewer role can view cards only");
+    uiStore.showToast(t("board.viewerReadOnlyShort"));
     return;
   }
   const currentIndex = boardsStore.columns.findIndex((column) => column.id === task.columnId);
@@ -123,15 +124,15 @@ async function addCard() {
     labels: labelsFromText(newCard.value.labelsText)
   });
   if (result.error === "viewer") {
-    uiStore.showToast("Viewer role cannot create cards");
+    uiStore.showToast(t("board.viewerReadOnlyShort"));
     return;
   }
   if (result.error) {
-    uiStore.showToast(result.error.message || "Ошибка создания карточки");
+    uiStore.showToast(result.error.message || t("board.cardCreationFailed"));
     return;
   }
   if (!result.card) return;
-  uiStore.showToast(result.queued ? "Карточка добавлена в очередь офлайн" : `${result.card.title} added`);
+  uiStore.showToast(result.queued ? t("board.cardQueuedOffline") : `${result.card.title} added`);
   newCard.value = { title: "", description: "", columnId: boardsStore.columns[0]?.id || "", assigneeId: authStore.currentUserId, labelsText: "" };
 }
 
@@ -151,7 +152,7 @@ async function setupColumns() {
   if (result.error) uiStore.showToast(result.error.message);
   else {
     newCard.value.columnId = boardsStore.columns[0]?.id || "";
-    uiStore.showToast("Default columns created");
+    uiStore.showToast(t("board.createDefaultColumns"));
   }
 }
 
@@ -173,20 +174,20 @@ onBeforeUnmount(() => {
 
 function handleOnline() {
   cardsStore.setOnlineStatus(true);
-  uiStore.showToast("Соединение восстановлено. Очередь синхронизируется.");
+  uiStore.showToast(t("board.connectionRestored"));
 }
 
 function handleOffline() {
   cardsStore.setOnlineStatus(false);
-  uiStore.showToast("Нет соединения. Новые действия будут поставлены в очередь.");
+  uiStore.showToast(t("board.connectionLost"));
 }
 </script>
 
 <template>
   <section class="board-hero" data-component="BoardHeader">
     <div>
-      <p class="kicker">{{ selectedBoard?.name || "Board" }}</p>
-      <h2>{{ selectedBoard ? "Board work surface" : "Board not found" }}</h2>
+      <p class="kicker">{{ selectedBoard?.name || t("nav.board") }}</p>
+      <h2>{{ selectedBoard ? t("board.workSurface") : t("board.notFound") }}</h2>
     </div>
     <div class="board-meta">
       <span class="status-badge" :class="badgeClass(uiStore.syncState)">{{ uiStore.syncState.toUpperCase() }}</span>
@@ -196,70 +197,70 @@ function handleOffline() {
   </section>
 
   <section v-if="pageLoading" class="panel empty-state informative">
-    <strong>Loading board</strong>
-    <span>Reading board, columns, cards, members, and activity from Supabase.</span>
+    <strong>{{ t("board.loading") }}</strong>
+    <span>{{ t("board.loadingBody") }}</span>
   </section>
 
   <section v-else-if="!selectedBoard" class="panel empty-state informative">
-    <strong>Board not found</strong>
-    <span>No board row was returned for this id.</span>
+    <strong>{{ t("board.notFound") }}</strong>
+    <span>{{ t("board.notFound") }}</span>
   </section>
 
   <section v-else-if="!boardsStore.columns.length" class="panel empty-state informative">
-    <strong>No columns yet</strong>
-    <span>This board has no Supabase column rows.</span>
-    <button class="button secondary" type="button" :disabled="!canMutate" @click="setupColumns">Create default columns</button>
+    <strong>{{ t("board.noColumns") }}</strong>
+    <span>{{ t("board.noColumnsBody") }}</span>
+    <button class="button secondary" type="button" :disabled="!canMutate" @click="setupColumns">{{ t("board.createDefaultColumns") }}</button>
   </section>
 
   <section v-if="selectedBoard && boardsStore.columns.length" class="board-filters panel compact-panel">
-    <input v-model="filters.query" class="input" type="search" placeholder="Поиск по карточкам" />
+    <input v-model="filters.query" class="input" type="search" :placeholder="t('board.searchPlaceholder')" />
     <select v-model="filters.assigneeId" class="input">
-      <option value="">Все исполнители</option>
+      <option value="">{{ t("board.allAssignees") }}</option>
       <option v-for="member in membersStore.members" :key="member.id" :value="member.id">{{ member.name }}</option>
     </select>
     <select v-model="filters.label" class="input">
-      <option value="">Все метки</option>
+      <option value="">{{ t("board.allLabels") }}</option>
       <option v-for="label in availableLabels" :key="label" :value="label">{{ label }}</option>
     </select>
     <select v-model="filters.status" class="input">
-      <option value="">Все статусы</option>
-      <option value="active">active</option>
-      <option value="blocked">blocked</option>
-      <option value="done">done</option>
+      <option value="">{{ t("board.allStatuses") }}</option>
+      <option value="active">{{ t("board.statusActive") }}</option>
+      <option value="blocked">{{ t("board.statusBlocked") }}</option>
+      <option value="done">{{ t("board.statusDone") }}</option>
     </select>
     <span class="status-badge" :class="cardsStore.offline.isOnline ? 'synced' : 'offline'">
-      {{ cardsStore.offline.isOnline ? 'ONLINE' : `${cardsStore.offline.queue.length} OFFLINE` }}
+      {{ cardsStore.offline.isOnline ? t("board.online") : `${cardsStore.offline.queue.length} ${t("board.offlinePrefix")}` }}
     </span>
   </section>
 
   <form v-if="selectedBoard && boardsStore.columns.length" class="quick-card-form" data-component="CreateCardForm" @submit.prevent="addCard">
     <label>
-      Title
-      <input v-model="newCard.title" class="input" :disabled="!canMutate" placeholder="New card title" required />
+      {{ t("board.titleField") }}
+      <input v-model="newCard.title" class="input" :disabled="!canMutate" :placeholder="t('board.newCardTitle')" required />
     </label>
     <label>
-      Description
-      <input v-model="newCard.description" class="input" :disabled="!canMutate" placeholder="What needs to happen?" required />
+      {{ t("board.descriptionField") }}
+      <input v-model="newCard.description" class="input" :disabled="!canMutate" :placeholder="t('board.newCardDescription')" required />
     </label>
     <label>
-      Column
+      {{ t("board.columnField") }}
       <select v-model="newCard.columnId" class="input" :disabled="!canMutate">
         <option v-for="column in boardsStore.columns" :key="column.id" :value="column.id">{{ column.title }}</option>
       </select>
     </label>
     <label>
-      Assignee
+      {{ t("board.assigneeField") }}
       <select v-model="newCard.assigneeId" class="input" :disabled="!canMutate">
-        <option :value="null">Unassigned</option>
+        <option :value="null">{{ t("board.unassigned") }}</option>
         <option v-for="member in membersStore.members" :key="member.id" :value="member.id">{{ member.name }}</option>
       </select>
     </label>
     <label>
-      Labels
-      <input v-model="newCard.labelsText" class="input" :disabled="!canMutate" placeholder="frontend, urgent" />
+      {{ t("board.labelsField") }}
+      <input v-model="newCard.labelsText" class="input" :disabled="!canMutate" :placeholder="t('board.labelsPlaceholder')" />
     </label>
-    <button class="button primary" type="submit" :disabled="!canMutate">Add card</button>
-    <span v-if="!canMutate" class="permission-note">Viewer role is read-only. Card actions are disabled.</span>
+    <button class="button primary" type="submit" :disabled="!canMutate">{{ t("board.addCard") }}</button>
+    <span v-if="!canMutate" class="permission-note">{{ t("board.viewerReadOnlyShort") }}</span>
   </form>
 
   <section v-if="selectedBoard && boardsStore.columns.length" class="board-layout" data-component="Board">
@@ -290,8 +291,8 @@ function handleOffline() {
           @move-right="moveTaskByKeyboard(task, 1)"
         />
         <div v-if="!column.cards.length" class="empty-state informative">
-          <strong>No cards here</strong>
-          <span>Create a card or move an existing Supabase card into {{ column.title }}.</span>
+          <strong>{{ t("board.noCardsHere") }}</strong>
+          <span>{{ t("board.createCardHint", { column: column.title }) }}</span>
         </div>
       </div>
     </article>

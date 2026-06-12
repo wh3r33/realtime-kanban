@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
 import { useBoardsStore } from "../stores/boards";
 import { useUiStore } from "../stores/ui";
+import { t } from "../services/localization";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -19,7 +20,7 @@ const hasBoardError = computed(() => Boolean(boardsStore.errorMessage));
 
 function openBoard(boardId) {
   boardsStore.selectBoard(boardId);
-  uiStore.showToast(`${boardsStore.selectedBoard?.name || "Board"} opened`);
+  uiStore.showToast(t("messages.boardOpened", { name: boardsStore.selectedBoard?.name || "Board" }));
   router.push(`/boards/${boardId}`);
 }
 
@@ -34,7 +35,7 @@ async function createBoard() {
   }
   form.title = "";
   form.description = "";
-  uiStore.showToast(`${result.board.name} created`);
+  uiStore.showToast(t("messages.boardCreated", { name: result.board.name }));
   router.push(`/boards/${result.board.id}`);
 }
 
@@ -47,52 +48,52 @@ onMounted(async () => {
 <template>
   <section class="page-header">
     <div class="header-line">
-      <p class="kicker">Workspace Dashboard</p>
+      <p class="kicker">{{ t("boards.header") }}</p>
       <div class="board-meta">
-        <span class="status-badge" :class="authStore.isConfigured ? 'synced' : 'viewer'">{{ authStore.isConfigured ? 'SUPABASE' : 'SETUP REQUIRED' }}</span>
+        <span class="status-badge" :class="authStore.isConfigured ? 'synced' : 'viewer'">{{ authStore.isConfigured ? 'SUPABASE' : t('boards.setupRequired') }}</span>
       </div>
     </div>
-    <h1>Your boards</h1>
-    <p>Boards shown here are loaded from Supabase membership rows. Empty workspaces stay empty until you create a board.</p>
+    <h1>{{ t("boards.title") }}</h1>
+    <p>{{ t("boards.summary") }}</p>
   </section>
 
   <section v-if="authStore.session.status === 'setup_required'" class="panel empty-state informative">
-    <strong>Supabase setup required</strong>
-    <span>Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then reload the app. VITE_SUPABASE_PUBLISHABLE_KEY is supported as a fallback.</span>
+    <strong>{{ t("boards.setupRequired") }}</strong>
+    <span>{{ t("boards.setupRequiredBody") }}</span>
   </section>
 
   <section v-if="authStore.profileErrorMessage && authStore.session.status === 'authenticated'" class="panel empty-state informative error-state" role="alert">
-    <strong>Profile setup needs attention</strong>
+    <strong>{{ t("boards.profileSetup") }}</strong>
     <span>{{ authStore.profileErrorMessage }}</span>
   </section>
 
   <section v-if="authStore.session.status !== 'setup_required'" class="stats-grid workspace-stats" aria-label="Workspace summary">
     <article class="stat-card">
-      <span>Boards</span>
+      <span>{{ t("nav.boards") }}</span>
       <strong>{{ boardsStore.boards.length }}</strong>
     </article>
     <article class="stat-card">
-      <span>Members</span>
+      <span>{{ t("nav.members") }}</span>
       <strong>{{ totalMembers }}</strong>
     </article>
     <article class="stat-card">
-      <span>Activity</span>
+      <span>{{ t("nav.activity") }}</span>
       <strong>{{ totalActivity }}</strong>
     </article>
     <article class="stat-card">
-      <span>Realtime</span>
+      <span>{{ t("settings.realtime") }}</span>
       <strong>{{ uiStore.syncState }}</strong>
     </article>
   </section>
 
   <section v-if="hasBoardError && authStore.session.status !== 'setup_required'" class="panel empty-state informative error-state" role="alert">
-    <strong>Boards could not be loaded</strong>
+    <strong>{{ t("boards.boardsLoadFailed") }}</strong>
     <span>{{ boardsStore.errorMessage }}</span>
   </section>
 
   <section v-else-if="!boardsStore.loading && !hasBoards && authStore.session.status !== 'setup_required'" class="panel empty-state informative">
-    <strong>No boards yet</strong>
-    <span>Create a board to insert a Supabase board, owner membership, and default columns.</span>
+    <strong>{{ t("boards.noBoards") }}</strong>
+    <span>{{ t("boards.noBoardsBody") }}</span>
   </section>
 
   <section v-if="authStore.session.status !== 'setup_required'" class="page-grid boards-grid">
@@ -112,35 +113,35 @@ onMounted(async () => {
         <span>{{ board.activity }} activity</span>
       </div>
       <button class="button primary board-open-action" type="button" @click="openBoard(board.id)">
-        Open board
+        {{ t("boards.openBoard") }}
       </button>
     </article>
 
     <article class="board-card create-board" aria-label="Create a new board">
-      <span>Create</span>
-      <h2>New board</h2>
-      <p>Creates the board, owner membership, and Todo / In Progress / Review / Done columns.</p>
+      <span>{{ t("common.create") }}</span>
+      <h2>{{ t("boards.createTitle") }}</h2>
+      <p>{{ t("boards.createBody") }}</p>
       <form class="drawer-block" @submit.prevent="createBoard">
-        <input v-model="form.title" class="input" placeholder="Board title" required />
-        <input v-model="form.description" class="input" placeholder="Description optional" />
-        <button class="button secondary" type="submit" :disabled="busy">{{ busy ? "Creating..." : "Create board" }}</button>
+        <input v-model="form.title" class="input" :placeholder="t('boards.title')" required />
+        <input v-model="form.description" class="input" :placeholder="t('common.descriptionOptional')" />
+        <button class="button secondary" type="submit" :disabled="busy">{{ busy ? t("common.working") : t("boards.createBoard") }}</button>
       </form>
     </article>
   </section>
 
   <section v-if="authStore.session.status !== 'setup_required'" class="panel">
     <div class="panel-header">
-      <h2>Recent activity</h2>
+      <h2>{{ t("boards.recentActivity") }}</h2>
       <span class="status-badge viewer">FROM ACTIVITY LOGS</span>
     </div>
-    <div class="compact-list">
-      <p v-for="event in uiStore.activityEvents.slice(0, 4)" :key="event.id">
-        <strong>{{ event.title }}</strong> {{ event.body }}
-      </p>
+      <div class="compact-list">
+        <p v-for="event in uiStore.activityEvents.slice(0, 4)" :key="event.id">
+          <strong>{{ event.title }}</strong> {{ event.body }}
+        </p>
       <div v-if="!uiStore.activityEvents.length" class="empty-state compact">
-        <strong>No recent activity</strong>
-        <span>Activity appears after Supabase writes create log rows.</span>
+        <strong>{{ t("boards.noRecentActivity") }}</strong>
+        <span>{{ t("boards.noRecentActivityBody") }}</span>
       </div>
-    </div>
+      </div>
   </section>
 </template>

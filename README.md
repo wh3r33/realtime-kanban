@@ -35,6 +35,8 @@ VITE_SUPABASE_ANON_KEY=
 
 When these values are absent, the app shows a setup-required state. It does not fall back to demo boards, users, cards, presence, notifications, or activity.
 
+Avatar uploads require a public Supabase Storage bucket named `avatars`, or an alternate public bucket name set with `VITE_SUPABASE_AVATAR_BUCKET`. If the bucket is missing, profile editing still works with the Avatar URL field.
+
 ## Supabase Status
 
 Completed:

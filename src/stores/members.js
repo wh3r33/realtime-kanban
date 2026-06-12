@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import { watch } from "vue";
 import {
   createBoardInvitation,
   getCurrentUserBoardRole,
@@ -8,6 +9,7 @@ import {
   revokeBoardInvitation,
   updateMemberRole
 } from "../services/memberRepository";
+import { language, t } from "../services/localization";
 import { isSupabaseConfigured } from "../services/supabaseClient";
 import { useAuthStore } from "./auth";
 
@@ -23,6 +25,13 @@ const fallbackMember = {
   activity: "No activity"
 };
 
+function presenceMessageForStatus(status) {
+  if (status === "connecting") return t("members.presenceConnecting");
+  if (status === "online") return t("members.presenceLive");
+  if (status === "error") return t("members.presenceUnavailable");
+  return t("members.presenceOffline");
+}
+
 export const useMembersStore = defineStore("members", {
   state: () => ({
     members: [],
@@ -32,7 +41,7 @@ export const useMembersStore = defineStore("members", {
     presenceByUserId: {},
     presenceConnected: false,
     presenceStatus: "offline",
-    presenceMessage: "Presence offline",
+    presenceMessage: presenceMessageForStatus("offline"),
     loading: false,
     errorMessage: "",
     invitationsSupported: true,
@@ -114,7 +123,7 @@ export const useMembersStore = defineStore("members", {
       this.editingUsers = editing;
       this.presenceConnected = true;
       this.presenceStatus = "online";
-      this.presenceMessage = "Presence live";
+      this.presenceMessage = t("members.presenceLive");
       this.members = this.members.map((member) => ({
         ...member,
         presence: nextPresence[member.id] ? "online" : "offline",
@@ -129,7 +138,7 @@ export const useMembersStore = defineStore("members", {
       this.presenceByUserId = {};
       this.presenceConnected = false;
       this.presenceStatus = "offline";
-      this.presenceMessage = "Presence offline";
+      this.presenceMessage = t("members.presenceOffline");
       this.loading = false;
       this.errorMessage = "";
       this.invitationsSupported = true;
@@ -137,22 +146,22 @@ export const useMembersStore = defineStore("members", {
     setPresenceDisconnected() {
       this.presenceConnected = false;
       this.presenceStatus = "offline";
-      this.presenceMessage = "Presence offline";
+      this.presenceMessage = presenceMessageForStatus("offline");
       this.presenceByUserId = {};
       this.editingUsers = [];
       this.members = this.members.map((member) => ({ ...member, presence: "offline" }));
     },
-    setPresenceConnecting(message = "Connecting to Supabase presence") {
+    setPresenceConnecting(message = presenceMessageForStatus("connecting")) {
       this.presenceConnected = false;
       this.presenceStatus = "connecting";
       this.presenceMessage = message;
     },
-    setPresenceConnected(message = "Presence live") {
+    setPresenceConnected(message = presenceMessageForStatus("online")) {
       this.presenceConnected = true;
       this.presenceStatus = "online";
       this.presenceMessage = message;
     },
-    setPresenceFailed(message = "Presence unavailable") {
+    setPresenceFailed(message = presenceMessageForStatus("error")) {
       this.presenceConnected = false;
       this.presenceStatus = "error";
       this.presenceMessage = message;
@@ -193,4 +202,9 @@ export const useMembersStore = defineStore("members", {
       return { member: data, error };
     }
   }
+});
+
+watch(language, () => {
+  const store = useMembersStore();
+  store.presenceMessage = presenceMessageForStatus(store.presenceStatus);
 });

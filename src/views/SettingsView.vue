@@ -6,6 +6,7 @@ import { useAuthStore } from "../stores/auth";
 import { useBoardsStore } from "../stores/boards";
 import { useMembersStore } from "../stores/members";
 import { useUiStore } from "../stores/ui";
+import { t } from "../services/localization";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -15,7 +16,11 @@ const uiStore = useUiStore();
 const language = ref(boardsStore.boardSettings.language);
 const conflictStrategy = ref(boardsStore.boardSettings.conflictStrategy);
 const languageOpen = ref(false);
+const conflictStrategyOpen = ref(false);
 const languagePickerRef = ref(null);
+const conflictStrategyPickerRef = ref(null);
+const transferOpen = ref(false);
+const transferPickerRef = ref(null);
 const dangerModal = ref("");
 const dangerBusy = ref(false);
 const dangerMessage = ref("");
@@ -26,15 +31,20 @@ const selectedBoard = computed(() => boardsStore.selectedBoard);
 const selectedBoardMembers = computed(() => membersStore.members || []);
 const transferCandidates = computed(() => selectedBoardMembers.value.filter((member) => member.id !== authStore.currentUserId));
 const canManageDanger = computed(() => authStore.canManageWorkspace && Boolean(selectedBoard.value?.id));
-const languageOptions = [
-  { value: "en", label: "English", detail: "Interface in English" },
-  { value: "ru", label: "Russian", detail: "Интерфейс на русском" }
-];
+const languageOptions = computed(() => [
+  { value: "en", label: t("settings.languageEnglish"), detail: t("settings.languageEnglishDetail") },
+  { value: "ru", label: t("settings.languageRussian"), detail: t("settings.languageRussianDetail") }
+]);
+const conflictStrategyOptions = computed(() => [
+  { value: "versioned", label: t("settings.conflictStrategyVersioned"), detail: t("settings.conflictStrategyVersionedDetail") },
+  { value: "manual", label: t("settings.conflictStrategyManual"), detail: t("settings.conflictStrategyManualDetail") },
+  { value: "server", label: t("settings.conflictStrategyServer"), detail: t("settings.conflictStrategyServerDetail") }
+]);
 
 function saveSettings() {
   boardsStore.setLanguage(language.value);
   boardsStore.boardSettings.conflictStrategy = conflictStrategy.value;
-  uiStore.showToast("Board settings are local until a settings table is added");
+  uiStore.showToast(t("settings.saveSettings"));
 }
 
 function selectLanguage(option) {
@@ -43,18 +53,42 @@ function selectLanguage(option) {
   languageOpen.value = false;
 }
 
+function selectConflictStrategy(option) {
+  conflictStrategy.value = option.value;
+  boardsStore.boardSettings.conflictStrategy = option.value;
+  conflictStrategyOpen.value = false;
+}
+
+function selectTransferTarget(member) {
+  transferTargetId.value = member.id;
+  transferOpen.value = false;
+}
+
 function toggleLanguagePicker() {
   languageOpen.value = !languageOpen.value;
 }
 
+function toggleConflictStrategyPicker() {
+  conflictStrategyOpen.value = !conflictStrategyOpen.value;
+}
+
+function toggleTransferPicker() {
+  transferOpen.value = !transferOpen.value;
+}
+
 function closeLanguagePicker(event) {
-  if (!languagePickerRef.value) return;
-  if (languagePickerRef.value.contains(event.target)) return;
+  if (
+    languagePickerRef.value?.contains(event.target) ||
+    conflictStrategyPickerRef.value?.contains(event.target) ||
+    transferPickerRef.value?.contains(event.target)
+  ) return;
   languageOpen.value = false;
+  conflictStrategyOpen.value = false;
+  transferOpen.value = false;
 }
 
 function copyShareLink() {
-  uiStore.showToast("Board URL is ready to share with existing members");
+  uiStore.showToast(t("settings.copyShareLink"));
 }
 
 function openDangerModal(action) {
@@ -62,6 +96,7 @@ function openDangerModal(action) {
   dangerModal.value = action;
   deleteConfirm.value = "";
   transferTargetId.value = transferCandidates.value[0]?.id || "";
+  transferOpen.value = false;
 }
 
 function closeDangerModal() {
@@ -70,12 +105,13 @@ function closeDangerModal() {
   dangerMessage.value = "";
   deleteConfirm.value = "";
   transferTargetId.value = "";
+  transferOpen.value = false;
 }
 
 async function confirmDeleteBoard() {
   if (!selectedBoard.value?.id) return;
   if (deleteConfirm.value.trim().toLowerCase() !== (selectedBoard.value.name || "").trim().toLowerCase()) {
-    dangerMessage.value = "Type the board name exactly to confirm deletion.";
+    dangerMessage.value = t("settings.deleteConfirmHint");
     return;
   }
   dangerBusy.value = true;
@@ -83,17 +119,17 @@ async function confirmDeleteBoard() {
   try {
     const result = await deleteBoard(selectedBoard.value.id);
     if (result.error) {
-      dangerMessage.value = result.error.message || "Board deletion failed.";
+      dangerMessage.value = result.error.message || t("settings.boardDeletionFailed");
       uiStore.showToast(dangerMessage.value);
       return;
     }
     boardsStore.resetWorkspace();
     membersStore.resetWorkspace();
-    uiStore.showToast("Board deleted");
+    uiStore.showToast(t("messages.boardDeleted"));
     closeDangerModal();
     router.push("/boards");
   } catch (error) {
-    dangerMessage.value = error?.message || "Board deletion failed.";
+    dangerMessage.value = error?.message || t("settings.boardDeletionFailed");
     uiStore.showToast(dangerMessage.value);
   } finally {
     dangerBusy.value = false;
@@ -103,7 +139,7 @@ async function confirmDeleteBoard() {
 async function confirmTransferOwnership() {
   if (!selectedBoard.value?.id || !transferTargetId.value) return;
   if (transferTargetId.value === authStore.currentUserId) {
-    dangerMessage.value = "Choose another board member.";
+    dangerMessage.value = t("settings.chooseAnotherMember");
     return;
   }
   dangerBusy.value = true;
@@ -111,16 +147,16 @@ async function confirmTransferOwnership() {
   try {
     const result = await transferBoardOwnership(selectedBoard.value.id, transferTargetId.value);
     if (result.error) {
-      dangerMessage.value = result.error.message || "Ownership transfer failed.";
+      dangerMessage.value = result.error.message || t("settings.ownershipTransferFailed");
       uiStore.showToast(dangerMessage.value);
       return;
     }
     await boardsStore.loadBoards();
     await membersStore.loadMembers(selectedBoard.value.id);
-    uiStore.showToast("Ownership transferred");
+    uiStore.showToast(t("messages.ownershipTransferred"));
     closeDangerModal();
   } catch (error) {
-    dangerMessage.value = error?.message || "Ownership transfer failed.";
+    dangerMessage.value = error?.message || t("settings.ownershipTransferFailed");
     uiStore.showToast(dangerMessage.value);
   } finally {
     dangerBusy.value = false;
@@ -151,45 +187,45 @@ onBeforeUnmount(() => {
 <template>
   <section class="page-header settings-hero">
     <div class="header-line">
-      <p class="kicker">Realtime System Control Center</p>
+      <p class="kicker">{{ t("settings.systemControlCenter") }}</p>
       <div class="board-meta">
         <span class="status-badge" :class="uiStore.syncState === 'synced' ? 'synced' : 'viewer'">{{ uiStore.syncState.toUpperCase() }}</span>
-        <span class="status-badge viewer">RLS POLICY REQUIRED</span>
-        <span class="status-badge versioned">VERSIONED</span>
+        <span class="status-badge viewer">{{ t("settings.rlsRequired") }}</span>
+        <span class="status-badge versioned">{{ t("settings.versioned") }}</span>
       </div>
     </div>
-    <h1>Operational controls for {{ selectedBoard?.name || "this board" }}.</h1>
-    <p>Only data backed by the provided Supabase schema is marked connected.</p>
+    <h1>{{ t("settings.title", { board: selectedBoard?.name || "this board" }) }}</h1>
+    <p>{{ t("settings.subtitle") }}</p>
   </section>
 
   <section class="settings-control-grid" aria-label="Board system controls">
     <article class="settings-section-card">
       <div class="section-title-row">
         <div>
-          <p class="kicker">Board</p>
-          <h2>Workspace identity</h2>
+          <p class="kicker">{{ t("settings.boardSection") }}</p>
+          <h2>{{ t("settings.workspaceIdentity") }}</h2>
         </div>
-        <span class="status-badge synced">SYNCED</span>
+        <span class="status-badge synced">{{ t("settings.synced") }}</span>
       </div>
-      <label>Board name<input class="input" :value="selectedBoard?.name" readonly /></label>
+      <label>{{ t("board.titleField") }}<input class="input" :value="selectedBoard?.name" readonly /></label>
       <div class="setting-line">
-        <span>Visibility</span>
-        <strong>Private to members</strong>
+        <span>{{ t("settings.ownerControls") }}</span>
+        <strong>{{ t("settings.privateToMembers") }}</strong>
       </div>
       <div class="setting-line share-line">
-        <span>Board URL</span>
+        <span>{{ t("settings.boardUrl") }}</span>
         <strong>/boards/{{ selectedBoard?.id }}</strong>
       </div>
-      <button class="button secondary" type="button" @click="copyShareLink">Copy share link</button>
+      <button class="button secondary" type="button" @click="copyShareLink">{{ t("settings.copyShareLink") }}</button>
     </article>
 
     <article class="settings-section-card">
       <div class="section-title-row">
         <div>
-          <p class="kicker">Invitations</p>
-          <h2>Pending access</h2>
+          <p class="kicker">{{ t("settings.invitationsSection") }}</p>
+          <h2>{{ t("settings.pendingAccess") }}</h2>
         </div>
-        <span class="status-badge synced">CONNECTED</span>
+        <span class="status-badge synced">{{ t("settings.connected") }}</span>
       </div>
       <div class="invite-list">
         <div v-for="invitation in membersStore.invitations" :key="invitation.id" class="invite-row">
@@ -199,31 +235,31 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <div v-if="!membersStore.invitations.length" class="empty-state compact">
-          <strong>No pending invitations</strong>
-          <span>Pending board_invites rows appear here for board owners.</span>
+          <strong>{{ t("members.noPendingInvites") }}</strong>
+          <span>{{ t("members.noPendingInvitesBody") }}</span>
         </div>
       </div>
-      <button class="button primary" type="button" @click="router.push(`/boards/${selectedBoard?.id}/members`)">Create invite</button>
+      <button class="button primary" type="button" @click="router.push(`/boards/${selectedBoard?.id}/members`)">{{ t("settings.createInvite") }}</button>
     </article>
 
     <article class="settings-section-card">
       <div class="section-title-row">
         <div>
-          <p class="kicker">Permissions</p>
-          <h2>Role enforcement</h2>
+          <p class="kicker">{{ t("settings.permissionsSection") }}</p>
+          <h2>{{ t("settings.roleEnforcement") }}</h2>
         </div>
-        <span class="status-badge viewer">RLS POLICY REQUIRED</span>
+        <span class="status-badge viewer">{{ t("settings.rlsRequired") }}</span>
       </div>
       <div class="system-status-card">
-        <span>Owner controls</span>
+        <span>{{ t("settings.ownerControls") }}</span>
         <strong>Owner/editor/viewer roles are loaded from board_members.role.</strong>
       </div>
       <div class="setting-line">
-        <span>Default invite role</span>
+        <span>{{ t("settings.defaultInviteRole") }}</span>
         <strong><span class="role-badge viewer">VIEWER</span></strong>
       </div>
       <div class="setting-line">
-        <span>Viewer mode</span>
+        <span>{{ t("settings.viewerMode") }}</span>
         <strong>Read-only cards, activity, and presence.</strong>
       </div>
     </article>
@@ -231,10 +267,10 @@ onBeforeUnmount(() => {
     <article class="settings-section-card language-section">
       <div class="section-title-row">
         <div>
-          <p class="kicker">Localization</p>
-          <h2>Interface language</h2>
+          <p class="kicker">{{ t("settings.localizationSection") }}</p>
+          <h2>{{ t("settings.interfaceLanguage") }}</h2>
         </div>
-        <span class="status-badge synced">LANGUAGE SYNCED</span>
+        <span class="status-badge synced">{{ t("settings.languageSynced") }}</span>
       </div>
       <div ref="languagePickerRef" class="custom-select language-picker" :class="{ open: languageOpen }">
         <button
@@ -245,15 +281,15 @@ onBeforeUnmount(() => {
           @click.stop="toggleLanguagePicker"
         >
           <div>
-            <small>Interface language</small>
-            <strong>{{ languageOptions.find((option) => option.value === language)?.label || "English" }}</strong>
-            <em>{{ languageOptions.find((option) => option.value === language)?.detail || "Interface in English" }}</em>
+            <small>{{ t("settings.interfaceLanguage") }}</small>
+            <strong>{{ languageOptions.find((option) => option.value === language)?.label || t("settings.languageEnglish") }}</strong>
+            <em>{{ languageOptions.find((option) => option.value === language)?.detail || t("settings.languageEnglishDetail") }}</em>
           </div>
           <svg class="select-chevron" viewBox="0 0 24 24" aria-hidden="true">
             <path d="m6 9 6 6 6-6"></path>
           </svg>
         </button>
-        <div class="custom-select-menu" role="listbox" aria-label="Interface language">
+        <div v-if="languageOpen" class="custom-select-menu" role="listbox" :aria-label="t('settings.interfaceLanguage')">
           <button
             v-for="option in languageOptions"
             :key="option.value"
@@ -272,107 +308,169 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </div>
-      <p class="settings-helper-text">Language preference is stored locally for this prototype migration.</p>
+      <p class="settings-helper-text">{{ t("settings.languagePreference") }}</p>
     </article>
 
     <article class="settings-section-card realtime-section">
       <div class="section-title-row">
         <div>
-          <p class="kicker">Realtime</p>
-          <h2>Live sync channel</h2>
+          <p class="kicker">{{ t("settings.realtimeSection") }}</p>
+          <h2>{{ t("settings.liveSync") }}</h2>
         </div>
         <span class="status-badge" :class="uiStore.syncState === 'synced' ? 'synced' : 'viewer'">{{ uiStore.syncState.toUpperCase() }}</span>
       </div>
       <div class="system-status-grid">
         <div class="system-status-card">
-          <span>Provider</span>
-          <strong>{{ uiStore.syncState === "synced" ? "Supabase Realtime" : "Local BroadcastChannel fallback" }}</strong>
+          <span>{{ t("settings.realtimeProvider") }}</span>
+          <strong>{{ uiStore.syncState === "synced" ? t("settings.realtimeLive") : t("settings.realtimeFallback") }}</strong>
         </div>
         <div class="system-status-card">
-          <span>Sync status</span>
+          <span>{{ t("settings.realtimeStatus") }}</span>
           <strong><span class="pulse-dot"></span><span>{{ uiStore.syncText }}</span></strong>
         </div>
         <div class="system-status-card">
-          <span>Presence</span>
+          <span>{{ t("settings.realtimePresence") }}</span>
           <strong>{{ membersStore.presenceConnected ? `${membersStore.onlineMembers.length} online` : membersStore.presenceMessage }}</strong>
         </div>
       </div>
       <label>
-        Conflict strategy
-        <select v-model="conflictStrategy" class="input">
-          <option value="versioned">Versioned last-write-wins with rollback</option>
-          <option value="manual">Manual conflict review</option>
-          <option value="server">Server authority mode</option>
-        </select>
+        {{ t("settings.conflictStrategy") }}
+        <div ref="conflictStrategyPickerRef" class="custom-select language-picker" :class="{ open: conflictStrategyOpen }">
+          <button
+            class="custom-select-trigger language-trigger"
+            type="button"
+            aria-haspopup="listbox"
+            :aria-expanded="conflictStrategyOpen"
+            @click.stop="toggleConflictStrategyPicker"
+          >
+            <div>
+              <small>{{ t("settings.conflictStrategy") }}</small>
+              <strong>{{ conflictStrategyOptions.find((option) => option.value === conflictStrategy)?.label || t("settings.conflictStrategyVersioned") }}</strong>
+              <em>{{ conflictStrategyOptions.find((option) => option.value === conflictStrategy)?.detail || "" }}</em>
+            </div>
+            <svg class="select-chevron" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m6 9 6 6 6-6"></path>
+            </svg>
+          </button>
+          <div v-if="conflictStrategyOpen" class="custom-select-menu" role="listbox" :aria-label="t('settings.conflictStrategy')">
+            <button
+              v-for="option in conflictStrategyOptions"
+              :key="option.value"
+              class="custom-select-option"
+              :class="{ active: conflictStrategy === option.value }"
+              type="button"
+              role="option"
+              :aria-selected="conflictStrategy === option.value"
+              @click.stop="selectConflictStrategy(option)"
+            >
+              <div>
+                <strong>{{ option.label }}</strong>
+                <span>{{ option.detail }}</span>
+              </div>
+              <span class="custom-select-check" aria-hidden="true">{{ conflictStrategy === option.value ? "✓" : "" }}</span>
+            </button>
+          </div>
+        </div>
       </label>
-      <button class="button primary" type="button" @click="saveSettings">Save settings</button>
+      <button class="button primary" type="button" @click="saveSettings">{{ t("settings.saveSettings") }}</button>
     </article>
 
     <article class="danger-zone-card">
       <div class="section-title-row">
         <div>
           <p class="kicker">Danger Zone</p>
-          <h2>Owner-only operations</h2>
+          <h2>{{ t("settings.ownerOnly") }}</h2>
         </div>
         <span class="status-badge conflict">OWNER ONLY</span>
       </div>
       <div class="danger-action-row">
         <div>
-          <strong>Delete board</strong>
-          <span>Deletes the board and its cascaded board data. Owner only.</span>
+          <strong>{{ t("settings.deleteBoard") }}</strong>
+          <span>{{ t("settings.deleteBoardBody") }}</span>
         </div>
-        <button class="button danger" type="button" :disabled="!canManageDanger" @click="openDangerModal('delete')">Delete</button>
+      <button class="button danger" type="button" :disabled="!canManageDanger" @click="openDangerModal('delete')">{{ t("common.delete") }}</button>
       </div>
       <div class="danger-action-row">
         <div>
-          <strong>Transfer ownership</strong>
-          <span>Moves owner control to another existing board member.</span>
+          <strong>{{ t("settings.transferOwnership") }}</strong>
+          <span>{{ t("settings.transferOwnershipBody") }}</span>
         </div>
-        <button class="button secondary" type="button" :disabled="!canManageDanger || !transferCandidates.length" @click="openDangerModal('transfer')">Transfer</button>
+      <button class="button secondary" type="button" :disabled="!canManageDanger || !transferCandidates.length" @click="openDangerModal('transfer')">{{ t("common.transfer") }}</button>
       </div>
     </article>
   </section>
 
   <div v-if="dangerModal" class="modal-backdrop" role="presentation" @click.self="closeDangerModal">
     <section class="modal danger-modal settings-danger-modal" role="dialog" aria-modal="true" :aria-labelledby="dangerModal === 'delete' ? 'delete-board-title' : 'transfer-board-title'">
-      <button class="button secondary modal-close" type="button" @click="closeDangerModal">Close</button>
+      <button class="button secondary modal-close" type="button" @click="closeDangerModal">{{ t("common.close") }}</button>
       <div class="modal-body">
         <template v-if="dangerModal === 'delete'">
-          <h2 id="delete-board-title">Delete {{ selectedBoard?.name }}</h2>
-          <p>Type the board name below to confirm permanent deletion. Board members, cards, columns, activity, and invites are removed through cascade rules.</p>
+          <h2 id="delete-board-title">{{ t("settings.deleteConfirmTitle", { board: selectedBoard?.name }) }}</h2>
+          <p>{{ t("settings.deleteConfirmBody") }}</p>
           <div class="modal-form">
             <label>
-              Confirm board name
-              <input v-model="deleteConfirm" class="input" :placeholder="selectedBoard?.name || 'Board name'" autocomplete="off" />
+              {{ t("settings.confirmBoardName") }}
+              <input v-model="deleteConfirm" class="input" :placeholder="selectedBoard?.name || t('board.titleField')" autocomplete="off" />
             </label>
             <p v-if="dangerMessage" class="security-note" role="alert">{{ dangerMessage }}</p>
             <div class="modal-actions">
               <button class="button danger" type="button" :disabled="dangerBusy || !selectedBoard?.id" @click="confirmDeleteBoard">
-                {{ dangerBusy ? "Deleting..." : "Delete board" }}
+                {{ dangerBusy ? t("common.working") : t("settings.deleteBoard") }}
               </button>
-              <button class="button secondary" type="button" @click="closeDangerModal">Cancel</button>
+              <button class="button secondary" type="button" @click="closeDangerModal">{{ t("common.cancel") }}</button>
             </div>
           </div>
         </template>
         <template v-else>
-          <h2 id="transfer-board-title">Transfer ownership</h2>
-          <p>Select another member who should become the board owner. Your role becomes editor after the transfer.</p>
+          <h2 id="transfer-board-title">{{ t("settings.transferConfirmTitle") }}</h2>
+          <p>{{ t("settings.transferConfirmBody") }}</p>
           <div class="modal-form">
             <label>
-              New owner
-              <select v-model="transferTargetId" class="input" :disabled="!transferCandidates.length">
-                <option value="" disabled>Select a board member</option>
-                <option v-for="member in transferCandidates" :key="member.id" :value="member.id">
-                  {{ member.name }}{{ member.email ? ` · ${member.email}` : "" }}
-                </option>
-              </select>
+              {{ t("settings.newOwner") }}
+              <div ref="transferPickerRef" class="custom-select language-picker" :class="{ open: transferOpen }">
+                <button
+                  class="custom-select-trigger language-trigger"
+                  type="button"
+                  aria-haspopup="listbox"
+                  :aria-expanded="transferOpen"
+                  :disabled="!transferCandidates.length"
+                  @click.stop="toggleTransferPicker"
+                >
+                  <div>
+                    <small>{{ t("settings.newOwner") }}</small>
+                    <strong>{{ transferCandidates.find((member) => member.id === transferTargetId)?.name || t("common.selectBoardMember") }}</strong>
+                    <em>{{ transferCandidates.find((member) => member.id === transferTargetId)?.email || "" }}</em>
+                  </div>
+                  <svg class="select-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="m6 9 6 6 6-6"></path>
+                  </svg>
+                </button>
+                <div v-if="transferOpen" class="custom-select-menu" role="listbox" :aria-label="t('settings.newOwner')">
+                  <button
+                    v-for="member in transferCandidates"
+                    :key="member.id"
+                    class="custom-select-option"
+                    :class="{ active: transferTargetId === member.id }"
+                    type="button"
+                    role="option"
+                    :aria-selected="transferTargetId === member.id"
+                    @click.stop="selectTransferTarget(member)"
+                  >
+                    <div>
+                      <strong>{{ member.name }}</strong>
+                      <span>{{ member.email || member.role }}</span>
+                    </div>
+                    <span class="custom-select-check" aria-hidden="true">{{ transferTargetId === member.id ? "✓" : "" }}</span>
+                  </button>
+                </div>
+              </div>
             </label>
             <p v-if="dangerMessage" class="security-note" role="alert">{{ dangerMessage }}</p>
             <div class="modal-actions">
               <button class="button primary" type="button" :disabled="dangerBusy || !transferTargetId" @click="confirmTransferOwnership">
-                {{ dangerBusy ? "Transferring..." : "Transfer ownership" }}
+                {{ dangerBusy ? t("common.working") : t("settings.transferOwnership") }}
               </button>
-              <button class="button secondary" type="button" @click="closeDangerModal">Cancel</button>
+              <button class="button secondary" type="button" @click="closeDangerModal">{{ t("common.cancel") }}</button>
             </div>
           </div>
         </template>

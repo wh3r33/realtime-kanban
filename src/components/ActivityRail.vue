@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import UserAvatar from "./UserAvatar.vue";
 import { generateAiSubtasks, prioritizeBoardCards } from "../services/aiAssistantService";
+import { t } from "../services/localization";
 import { useAuthStore } from "../stores/auth";
 import { useBoardsStore } from "../stores/boards";
 import { useCardsStore } from "../stores/cards";
@@ -55,7 +56,7 @@ async function generateSubtasks() {
   resetAiState("subtasks");
   const card = targetCard.value;
   if (!card?.id) {
-    aiError.value = "Сначала выберите карточку";
+    aiError.value = t("ai.selectCardFirst");
     return;
   }
   aiLoading.value = true;
@@ -65,9 +66,9 @@ async function generateSubtasks() {
       prompt: "Break the selected card into concise implementation subtasks.",
       card: cardPayload(card)
     });
-    aiMessage.value = "AI подготовил подзадачи";
+    aiMessage.value = t("ai.aiPreparedSubtasks");
   } catch (error) {
-    aiError.value = `Ошибка AI: ${error.message || "попробуйте позже"}`;
+    aiError.value = `AI error: ${error.message || "try again later"}`;
   } finally {
     aiLoading.value = false;
   }
@@ -76,7 +77,7 @@ async function generateSubtasks() {
 async function generatePriority() {
   resetAiState("priority");
   if (!boardCards.value.length) {
-    aiError.value = "На доске пока нет карточек";
+    aiError.value = t("ai.noCardsAvailable");
     return;
   }
   aiLoading.value = true;
@@ -85,9 +86,9 @@ async function generatePriority() {
       prompt: "Prioritize these board cards. Return concise recommendations with reasons.",
       cards: boardCards.value.map(cardPayload)
     });
-    aiMessage.value = "AI подготовил рекомендации по приоритетам";
+    aiMessage.value = t("ai.aiPreparedPriorities");
   } catch (error) {
-    aiError.value = `Ошибка AI: ${error.message || "попробуйте позже"}`;
+    aiError.value = `AI error: ${error.message || "try again later"}`;
   } finally {
     aiLoading.value = false;
   }
@@ -100,15 +101,15 @@ async function saveToCard() {
   const result = await cardsStore.saveChecklistItemsToCard(aiCardId.value, aiItems.value);
   aiSaving.value = false;
   if (result.error === "viewer") {
-    aiError.value = "У вас нет прав на сохранение подзадач";
+    aiError.value = t("board.viewerReadOnlyShort");
     return;
   }
   if (result.error) {
-    aiError.value = result.error.code === "MIGRATION_REQUIRED" ? result.error.message : `Ошибка сохранения: ${result.error.message || result.error}`;
+    aiError.value = result.error.code === "MIGRATION_REQUIRED" ? result.error.message : `Save failed: ${result.error.message || result.error}`;
     return;
   }
-  aiMessage.value = result.items.length ? "AI subtasks saved to card" : "Подзадачи уже есть в карточке";
-  uiStore.showToast("AI subtasks saved to card");
+  aiMessage.value = result.items.length ? t("ai.aiSaved") : t("ai.noSavedChecklist");
+  uiStore.showToast(t("ai.aiSaved"));
 }
 
 function openFullAssistant() {
@@ -126,46 +127,46 @@ function openFullAssistant() {
   <aside class="activity-rail glass" data-component="ActivityRail">
     <div class="rail-section ai-rail-section">
       <div class="rail-heading-row">
-        <p class="rail-label">AI Assistant</p>
-        <button class="button secondary rail-ai-button" type="button" :aria-expanded="isOpen" @click="isOpen = !isOpen">AI</button>
+        <p class="rail-label">{{ t("ai.assistantLabel") }}</p>
+        <button class="button secondary rail-ai-button" type="button" :aria-expanded="isOpen" @click="isOpen = !isOpen">{{ t("ai.title") }}</button>
       </div>
       <div v-if="isOpen" class="ai-rail-panel">
         <button type="button" class="ai-action-row" :disabled="aiLoading" @click="generateSubtasks">
-          <strong>Break selected card into subtasks</strong>
-          <span>{{ targetCard?.title || "Select a card first" }}</span>
+          <strong>{{ t("ai.subtasks") }}</strong>
+          <span>{{ targetCard?.title || t("ai.selectCardFirst") }}</span>
         </button>
         <button type="button" class="ai-action-row" :disabled="aiLoading" @click="generatePriority">
-          <strong>Prioritize board cards</strong>
-          <span>{{ boardCards.length }} cards in scope</span>
+          <strong>{{ t("ai.priority") }}</strong>
+          <span>{{ t("ai.noCardsInScope", { count: boardCards.length }) }}</span>
         </button>
         <button type="button" class="ai-action-row" @click="openFullAssistant">
-          <strong>Open full AI Assistant</strong>
-          <span>Use board and card context</span>
+          <strong>{{ t("ai.openAssistant") }}</strong>
+          <span>{{ t("ai.body") }}</span>
         </button>
 
-        <div v-if="aiLoading" class="ai-rail-status">AI готовит результат...</div>
+        <div v-if="aiLoading" class="ai-rail-status">{{ t("ai.aiPreparing") }}</div>
         <div v-if="aiError" class="ai-rail-status error" role="alert">{{ aiError }}</div>
         <div v-if="aiMessage" class="ai-rail-status success">{{ aiMessage }}</div>
 
         <div v-if="aiItems.length" class="ai-rail-results" aria-live="polite">
-          <p>{{ activeMode === "subtasks" ? "Generated subtasks" : "Priority recommendations" }}</p>
+          <p>{{ activeMode === "subtasks" ? t("ai.generatedSubtasks") : t("ai.priorityRecommendations") }}</p>
           <ul>
             <li v-for="item in aiItems" :key="item">{{ item }}</li>
           </ul>
           <button v-if="activeMode === 'subtasks'" class="button primary" type="button" :disabled="!canSave" @click="saveToCard">
-            {{ aiSaving ? "Saving..." : "Save to card" }}
+            {{ aiSaving ? t("common.saving") : t("ai.saveToCard") }}
           </button>
         </div>
       </div>
     </div>
     <div class="rail-section">
-      <p class="rail-label">Presence</p>
+      <p class="rail-label">{{ t("members.presence") }}</p>
       <div class="editing-now">
         <div v-for="member in membersStore.onlineMembers" :key="member.id" class="editing-item" data-component="EditingPresenceItem">
           <UserAvatar class="tiny-avatar user-avatar" :src="member.avatarUrl || ''" :name="member.name" :initials="member.initials" />
           <div>
             <strong>{{ member.name }}</strong>
-            <span>{{ membersStore.editorForCard(cardsStore.selectedCardId)?.userId === member.id ? "Редактирует выбранную карточку" : "Онлайн на доске" }}</span>
+            <span>{{ membersStore.editorForCard(cardsStore.selectedCardId)?.userId === member.id ? t("members.activeSignals") : t("members.online") }}</span>
           </div>
         </div>
         <div v-for="presence in membersStore.editingUsers" :key="`${presence.userId}-${presence.cardId}`" class="editing-item">
@@ -177,17 +178,17 @@ function openFullAssistant() {
           />
           <div>
             <strong>{{ membersStore.memberById(presence.userId).name }}</strong>
-            <span>Редактирует карточку · {{ cardsStore.cardById(presence.cardId)?.title || presence.cardId }}</span>
+            <span>{{ t("members.activeSignals") }} · {{ cardsStore.cardById(presence.cardId)?.title || presence.cardId }}</span>
           </div>
         </div>
         <div v-if="!membersStore.onlineMembers.length && !membersStore.editingUsers.length" class="editing-item">
-          <strong>{{ membersStore.presenceConnected ? "Никого онлайн" : membersStore.presenceMessage }}</strong>
-          <span>{{ membersStore.presenceConnected ? "Другие участники появятся здесь." : "Realtime presence is not currently live." }}</span>
+          <strong>{{ membersStore.presenceConnected ? t("members.noActiveSignals") : membersStore.presenceMessage }}</strong>
+          <span>{{ membersStore.presenceConnected ? "Other members will appear here." : "Realtime presence is not currently live." }}</span>
         </div>
       </div>
     </div>
     <div class="rail-section">
-      <p class="rail-label">Recent Activity</p>
+      <p class="rail-label">{{ t("activity.title") }}</p>
       <div class="activity-feed">
         <div
           v-for="(event, index) in uiStore.activityEvents.slice(0, 6)"
@@ -204,8 +205,8 @@ function openFullAssistant() {
           </div>
         </div>
         <div v-if="!uiStore.activityEvents.length" class="activity-item">
-          <strong>No activity yet</strong>
-          <span>Only Supabase activity_logs rows appear here.</span>
+          <strong>{{ t("activity.noActivity") }}</strong>
+          <span>{{ t("activity.body") }}</span>
         </div>
       </div>
     </div>

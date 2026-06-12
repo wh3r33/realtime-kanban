@@ -4,19 +4,20 @@ import UserAvatar from "../components/UserAvatar.vue";
 import { useBoardsStore } from "../stores/boards";
 import { useMembersStore } from "../stores/members";
 import { useUiStore } from "../stores/ui";
+import { t } from "../services/localization";
 
 const boardsStore = useBoardsStore();
 const membersStore = useMembersStore();
 const uiStore = useUiStore();
 const activeFilter = ref("all");
 
-const filters = [
-  { id: "all", label: "All" },
-  { id: "cards", label: "Cards" },
-  { id: "members", label: "Members" },
-  { id: "conflicts", label: "Conflicts" },
-  { id: "system", label: "System" }
-];
+const filters = computed(() => [
+  { id: "all", label: t("activity.all") },
+  { id: "cards", label: t("activity.cards") },
+  { id: "members", label: t("activity.members") },
+  { id: "conflicts", label: t("activity.conflicts") },
+  { id: "system", label: t("activity.system") }
+]);
 
 const categoryByType = {
   card_moved: "cards",
@@ -55,9 +56,9 @@ onMounted(async () => {
 
 <template>
   <section class="page-header">
-    <p class="kicker">History of Changes</p>
-    <h1>{{ boardsStore.selectedBoard?.name || "Board" }} activity</h1>
-    <p>Only rows from public.activity_logs are shown here.</p>
+    <p class="kicker">{{ t("activity.title") }}</p>
+    <h1>{{ boardsStore.selectedBoard?.name || t("nav.board") }} {{ t("nav.activity") }}</h1>
+    <p>{{ t("activity.body") }}</p>
   </section>
 
   <div class="filter-bar" aria-label="Activity filters">
@@ -82,8 +83,8 @@ onMounted(async () => {
       </div>
     </article>
     <div v-if="!filteredTimeline.length" class="empty-state compact">
-      <strong>No activity</strong>
-      <span>No Supabase activity log rows match this filter.</span>
+      <strong>{{ t("activity.noActivity") }}</strong>
+      <span>{{ t("activity.noActivityBody") }}</span>
     </div>
   </section>
 </template>

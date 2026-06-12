@@ -1,11 +1,6 @@
 import { getCurrentUser, missingSupabaseEnvMessage, supabase, supabaseSetupError, warnSupabaseError } from "./supabaseClient";
 
-const avatarBucketCandidates = [
-  import.meta.env.VITE_SUPABASE_AVATAR_BUCKET,
-  "avatars",
-  "profile-avatars",
-  "images"
-].filter(Boolean);
+const avatarBucketName = import.meta.env.VITE_SUPABASE_AVATAR_BUCKET || "avatars";
 
 function requireClient() {
   if (!supabase) return { error: new Error(missingSupabaseEnvMessage) };
@@ -16,40 +11,26 @@ function safeFileName(fileName = "avatar") {
   return fileName.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "avatar";
 }
 
-async function findAvatarBucket() {
-  const { client, error } = requireClient();
-  if (error) return { bucket: null, error };
-  const { data, error: listError } = await client.storage.listBuckets();
-  warnSupabaseError("avatar bucket list failed", listError);
-  if (listError) return { bucket: null, error: listError };
-  const bucket = (data || []).find((item) => item.public && avatarBucketCandidates.includes(item.name));
-  return { bucket: bucket || null, error: null };
-}
-
 export async function uploadProfileAvatar(file) {
   const { client, error } = requireClient();
   if (error) return { data: null, error };
   const { data: user, error: userError } = await getCurrentUser();
   if (userError || !user) return { data: null, error: userError || new Error("No authenticated Supabase user.") };
 
-  const { bucket, error: bucketError } = await findAvatarBucket();
-  if (bucketError) return { data: null, error: supabaseSetupError("Avatar storage could not be checked in Supabase") };
-  if (!bucket) {
-    return {
-      data: null,
-      error: new Error("Avatar storage bucket is not available. Use the avatar URL field instead.")
-    };
-  }
-
-  const bucketPath = `profiles/${user.id}/${Date.now()}-${safeFileName(file.name)}`;
-  const { error: uploadError } = await client.storage.from(bucket.name).upload(bucketPath, file, {
+  const bucketPath = `${user.id}/avatar-${Date.now()}-${safeFileName(file.name)}`;
+  const { error: uploadError } = await client.storage.from(avatarBucketName).upload(bucketPath, file, {
     upsert: true,
     contentType: file.type || "application/octet-stream"
   });
   warnSupabaseError("avatar upload failed", uploadError);
-  if (uploadError) return { data: null, error: uploadError };
+  if (uploadError) {
+    const message = uploadError?.status === 404 || /bucket|storage/i.test(uploadError?.message || "")
+      ? "Avatar storage is not configured. Create a public Supabase Storage bucket named avatars or paste an Avatar URL."
+      : uploadError?.message || "Avatar upload failed";
+    return { data: null, error: new Error(message) };
+  }
 
-  const { data: publicUrl } = client.storage.from(bucket.name).getPublicUrl(bucketPath);
+  const { data: publicUrl } = client.storage.from(avatarBucketName).getPublicUrl(bucketPath);
   if (!publicUrl?.publicUrl) {
     return {
       data: null,
@@ -59,7 +40,7 @@ export async function uploadProfileAvatar(file) {
   return {
     data: {
       avatarUrl: publicUrl.publicUrl,
-      bucket: bucket.name,
+      bucket: avatarBucketName,
       path: bucketPath
     },
     error: null

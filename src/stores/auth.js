@@ -9,6 +9,7 @@ import {
   warnSupabaseError
 } from "../services/supabaseClient";
 import { updateCurrentProfile } from "../services/profileRepository";
+import { t } from "../services/localization";
 
 function profileName(user, profile) {
   return profile?.name || user?.user_metadata?.name || user?.email || "Supabase user";
@@ -110,7 +111,7 @@ export const useAuthStore = defineStore("auth", {
       if (!isSupabaseConfigured || !supabase) return { ok: false, message: this.errorMessage };
       if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(payload.email);
-        return { ok: !error, message: error?.message || "Password reset email requested." };
+        return { ok: !error, message: error?.message || t("auth.resetSent") };
       }
       const authMethod = mode === "register" ? "signUp" : "signInWithPassword";
       const { error } = await supabase.auth[authMethod]({
@@ -123,7 +124,7 @@ export const useAuthStore = defineStore("auth", {
       this.initialized = false;
       initializePromise = null;
       await this.initialize();
-      return { ok: true, message: "Signed in with Supabase." };
+      return { ok: true, message: t("common.signIn") };
     },
     async acceptInvitation(token) {
       if (!isSupabaseConfigured || !supabase) return { ok: false, message: this.errorMessage };
@@ -131,7 +132,7 @@ export const useAuthStore = defineStore("auth", {
       const { acceptInvitation } = await import("../services/memberRepository");
       const { data, error } = await acceptInvitation(token);
       if (error) return { ok: false, message: error.message };
-      return { ok: true, message: "Invitation accepted.", boardId: data?.boardId };
+      return { ok: true, message: t("auth.invitationAccepted"), boardId: data?.boardId };
     },
     async updateProfile(patch = {}) {
       if (!isSupabaseConfigured || !supabase) return { ok: false, message: this.errorMessage || missingSupabaseEnvMessage };
@@ -143,7 +144,7 @@ export const useAuthStore = defineStore("auth", {
       this.profile = data;
       this.currentUserName = profileName({ email: data?.email }, data);
       this.profileErrorMessage = "";
-      return { ok: true, message: "Profile saved.", profile: data };
+      return { ok: true, message: t("messages.profileSaved"), profile: data };
     },
     async signOut() {
       if (supabase) await supabase.auth.signOut();

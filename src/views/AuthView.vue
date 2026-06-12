@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
+import { t } from "../services/localization";
 
 const route = useRoute();
 const router = useRouter();
@@ -18,24 +19,24 @@ const mode = computed(() => {
 
 const copy = computed(() => ({
   login: {
-    title: "Sign in",
-    body: "Sign in with Supabase auth to enter your workspace.",
-    submit: "Sign in"
+    title: t("auth.signInTitle"),
+    body: t("auth.signInBody"),
+    submit: t("common.signIn")
   },
   register: {
-    title: "Create account",
-    body: "Creates a Supabase auth account. public.handle_new_user() should create the profile row.",
-    submit: "Create account"
+    title: t("auth.registerTitle"),
+    body: t("auth.registerBody"),
+    submit: t("common.createAccount")
   },
   forgot: {
-    title: "Reset password",
-    body: "Requests a Supabase password reset email.",
-    submit: "Send reset link"
+    title: t("auth.forgotTitle"),
+    body: t("auth.forgotBody"),
+    submit: t("auth.forgotTitle")
   },
   invite: {
-    title: "Accept invitation",
-    body: "Sign in with the invited email, then accept the board invitation.",
-    submit: "Accept invite"
+    title: t("auth.inviteTitle"),
+    body: t("auth.inviteBody"),
+    submit: t("auth.inviteTitle")
   }
 }[mode.value]));
 
@@ -49,24 +50,24 @@ const form = reactive({
 function normalizeAuthMessage(rawMessage, authMode) {
   const message = (rawMessage || "").trim();
   if (!message) {
-    if (authMode === "forgot") return "Check your email for a password reset link.";
-    return "Something went wrong. Please try again.";
+    if (authMode === "forgot") return t("auth.resetSent");
+    return t("auth.authFailed");
   }
   if (authMode === "login" && /invalid.*(login|credential)|incorrect.*password|invalid email or password/i.test(message)) {
-    return "Invalid email or password.";
+    return t("auth.invalidLogin");
   }
   if (authMode === "register" && /already.*(registered|exists)|duplicate/i.test(message)) {
-    return "An account with that email already exists.";
+    return t("auth.accountExists");
   }
   if (authMode === "forgot") {
     return /invalid.*email|not found|user not found/i.test(message)
-      ? "If that email exists, a reset link will be sent."
-      : "Could not send a reset link. Please try again.";
+      ? t("auth.resetSent")
+      : t("auth.authFailed");
   }
   if (authMode === "invite") {
-    return "Could not accept the invitation. Please sign in with the invited email.";
+    return t("auth.inviteFailed");
   }
-  return "Authentication failed. Please try again.";
+  return t("auth.authFailed");
 }
 
 async function submit() {
@@ -101,33 +102,33 @@ async function submit() {
     <section class="brand-pane">
       <RouterLink class="brand-mark" to="/">realtime-kanban</RouterLink>
       <div>
-        <p class="kicker">Supabase authentication</p>
+        <p class="kicker">{{ t("auth.signInTitle") }}</p>
         <h1 class="auth-title">{{ copy.title }}</h1>
       </div>
       <p>{{ copy.body }}</p>
       <div class="benefit-list">
-        <span>owner: full access</span>
-        <span>editor: cards only</span>
-        <span>viewer: read-only</span>
+        <span>{{ t("auth.ownerFullAccess") }}</span>
+        <span>{{ t("auth.editorCardsOnly") }}</span>
+        <span>{{ t("auth.viewerReadOnly") }}</span>
       </div>
     </section>
 
     <form class="form-card" @submit.prevent="submit">
       <h1>{{ copy.title }}</h1>
-      <p class="form-note">This calls Supabase auth. No local mock users are created.</p>
+      <p class="form-note">{{ t("auth.formNote") }}</p>
 
       <label v-if="mode === 'register'">
-        Name
+        {{ t("auth.name") }}
         <input v-model="form.name" class="input" autocomplete="name" required />
       </label>
 
       <label>
-        Email
+        {{ t("auth.email") }}
         <input v-model="form.email" class="input" type="email" :autocomplete="mode === 'forgot' ? 'email' : 'username'" required />
       </label>
 
       <label v-if="mode !== 'forgot'">
-        Password
+        {{ t("auth.password") }}
         <input
           v-model="form.password"
           class="input"
@@ -139,12 +140,12 @@ async function submit() {
 
       <p v-if="message" class="security-note" role="status">{{ message }}</p>
 
-      <button class="button primary" type="submit" :disabled="busy">{{ busy ? "Working..." : copy.submit }}</button>
+      <button class="button primary" type="submit" :disabled="busy">{{ busy ? t("common.working") : copy.submit }}</button>
 
       <div class="form-links auth-links">
-        <RouterLink v-if="mode !== 'login'" class="auth-link-pill" to="/auth/login">Sign in</RouterLink>
-        <RouterLink v-if="mode !== 'register'" class="auth-link-pill" to="/auth/register">Create account</RouterLink>
-        <RouterLink v-if="mode !== 'forgot'" class="auth-link-pill" to="/auth/forgot-password">Forgot password</RouterLink>
+        <RouterLink v-if="mode !== 'login'" class="auth-link-pill" to="/auth/login">{{ t("common.signIn") }}</RouterLink>
+        <RouterLink v-if="mode !== 'register'" class="auth-link-pill" to="/auth/register">{{ t("common.createAccount") }}</RouterLink>
+        <RouterLink v-if="mode !== 'forgot'" class="auth-link-pill" to="/auth/forgot-password">{{ t("common.forgotPassword") }}</RouterLink>
       </div>
     </form>
   </main>

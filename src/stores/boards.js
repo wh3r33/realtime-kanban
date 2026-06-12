@@ -7,15 +7,11 @@ import {
   getBoardColumns,
   listBoardsForCurrentUser
 } from "../services/boardRepository";
+import { language as localeLanguage, setLanguage as setLocaleLanguage } from "../services/localization";
 import { isSupabaseConfigured } from "../services/supabaseClient";
 import { useAuthStore } from "./auth";
 
 const boardsRlsMessage = "Boards could not be loaded. Check Supabase RLS policies for boards and board_members.";
-
-const savedLanguage = () => {
-  if (typeof window === "undefined") return "en";
-  return window.localStorage.getItem("realtime-kanban:language") || "en";
-};
 
 function mapBoardRow(row) {
   return {
@@ -49,7 +45,7 @@ export const useBoardsStore = defineStore("boards", {
     columns: [],
     selectedBoardId: null,
     boardSettings: {
-      language: savedLanguage(),
+      language: localeLanguage.value,
       conflictStrategy: "versioned",
       visibility: "private"
     },
@@ -69,7 +65,7 @@ export const useBoardsStore = defineStore("boards", {
     },
     setLanguage(language) {
       this.boardSettings.language = language;
-      if (typeof window !== "undefined") window.localStorage.setItem("realtime-kanban:language", language);
+      setLocaleLanguage(language);
     },
     resetWorkspace() {
       this.boards = [];

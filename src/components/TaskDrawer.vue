@@ -5,6 +5,7 @@ import { useAuthStore } from "../stores/auth";
 import { useCardsStore } from "../stores/cards";
 import { useMembersStore } from "../stores/members";
 import { useUiStore } from "../stores/ui";
+import { t } from "../services/localization";
 
 const authStore = useAuthStore();
 const cardsStore = useCardsStore();
@@ -54,12 +55,12 @@ async function saveCard() {
     },
     { expectedVersion: draft.version }
   );
-  if (result.error === "viewer") uiStore.showToast("Роль viewer не может редактировать карточки");
-  else if (result.error === "conflict") uiStore.showToast("Конфликт версии: карточка уже изменена другим пользователем");
-  else if (result.error) uiStore.showToast(result.error.message || "Ошибка сохранения карточки");
+  if (result.error === "viewer") uiStore.showToast(t("board.viewerReadOnlyShort"));
+  else if (result.error === "conflict") uiStore.showToast(t("board.versionConflict"));
+  else if (result.error) uiStore.showToast(result.error.message || t("board.cardSaveFailed"));
   else {
     draft.version = result.card.version;
-    uiStore.showToast(result.queued ? "Изменение поставлено в очередь офлайн" : `${result.card.title} saved`);
+    uiStore.showToast(result.queued ? t("board.changeQueuedOffline") : `${result.card.title} saved`);
   }
 }
 
@@ -67,20 +68,20 @@ async function deleteCard() {
   if (!task.value) return;
   const title = task.value.title;
   const result = await cardsStore.deleteCard(task.value.id);
-  if (result.error === "viewer") uiStore.showToast("Роль viewer не может удалять карточки");
-  else if (result.error === "conflict") uiStore.showToast("Конфликт версии: карточка уже изменена другим пользователем");
-  else if (result.error) uiStore.showToast(result.error.message || "Delete failed");
-  else uiStore.showToast(result.queued ? "Удаление поставлено в очередь офлайн" : result.warning || `${title} deleted`);
+  if (result.error === "viewer") uiStore.showToast(t("board.viewerReadOnlyShort"));
+  else if (result.error === "conflict") uiStore.showToast(t("board.versionConflict"));
+  else if (result.error) uiStore.showToast(result.error.message || t("settings.boardDeletionFailed"));
+  else uiStore.showToast(result.queued ? t("board.deleteQueuedOffline") : result.warning || `${title} deleted`);
 }
 
 async function addComment() {
   if (!task.value) return;
   const result = await cardsStore.addComment(task.value.id, commentDraft.value);
-  if (result.error === "viewer") uiStore.showToast("Роль viewer не может комментировать");
-  else if (result.error) uiStore.showToast(result.error.code === "MIGRATION_REQUIRED" ? result.error.message : result.error.message || "Ошибка комментария");
+  if (result.error === "viewer") uiStore.showToast(t("board.viewerReadOnlyShort"));
+  else if (result.error) uiStore.showToast(result.error.code === "MIGRATION_REQUIRED" ? result.error.message : result.error.message || t("board.commentFailed"));
   else if (!result.error) {
     commentDraft.value = "";
-    uiStore.showToast("Комментарий добавлен");
+    uiStore.showToast(t("board.commentAdded"));
   }
 }
 
@@ -91,20 +92,20 @@ function startEditComment(comment) {
 
 async function saveComment(commentId) {
   const result = await cardsStore.updateComment(commentId, editingCommentBody.value);
-  if (result.error === "viewer") uiStore.showToast("Роль viewer не может редактировать комментарии");
-  else if (result.error) uiStore.showToast(result.error.code === "MIGRATION_REQUIRED" ? result.error.message : result.error.message || "Ошибка комментария");
+  if (result.error === "viewer") uiStore.showToast(t("board.viewerReadOnlyShort"));
+  else if (result.error) uiStore.showToast(result.error.code === "MIGRATION_REQUIRED" ? result.error.message : result.error.message || t("board.commentFailed"));
   else {
     editingCommentId.value = null;
     editingCommentBody.value = "";
-    uiStore.showToast("Comment updated");
+    uiStore.showToast(t("board.commentUpdated"));
   }
 }
 
 async function deleteComment(commentId) {
   const result = await cardsStore.deleteComment(commentId);
-  if (result.error === "viewer") uiStore.showToast("Роль viewer не может удалять комментарии");
-  else if (result.error) uiStore.showToast(result.error.code === "MIGRATION_REQUIRED" ? result.error.message : result.error.message || "Ошибка комментария");
-  else uiStore.showToast("Comment deleted");
+  if (result.error === "viewer") uiStore.showToast(t("board.viewerReadOnlyShort"));
+  else if (result.error) uiStore.showToast(result.error.code === "MIGRATION_REQUIRED" ? result.error.message : result.error.message || t("board.commentFailed"));
+  else uiStore.showToast(t("board.commentDeleted"));
 }
 
 function simulateConflict() {
@@ -135,8 +136,8 @@ function acceptLatest() {
 
 async function toggleChecklistItem(item) {
   const result = await cardsStore.toggleChecklistItem(item.id, !item.isDone);
-  if (result.error === "viewer") uiStore.showToast("Роль viewer не может менять чеклист");
-  else if (result.error) uiStore.showToast(result.error.code === "MIGRATION_REQUIRED" ? result.error.message : `Ошибка сохранения чеклиста: ${result.error.message || result.error}`);
+  if (result.error === "viewer") uiStore.showToast(t("board.viewerReadOnlyShort"));
+  else if (result.error) uiStore.showToast(result.error.code === "MIGRATION_REQUIRED" ? result.error.message : `Checklist save failed: ${result.error.message || result.error}`);
 }
 </script>
 
@@ -152,56 +153,56 @@ async function toggleChecklistItem(item) {
   >
     <div class="drawer-header">
       <div>
-        <p class="kicker">Task Detail</p>
-        <h3 id="drawerTitle">{{ task?.title || "Select a task" }}</h3>
+        <p class="kicker">{{ t("board.taskDetail") }}</p>
+        <h3 id="drawerTitle">{{ task?.title || t("board.selectTask") }}</h3>
       </div>
-      <button class="icon-button" type="button" aria-label="Close task drawer" @click="cardsStore.closeCard">
+      <button class="icon-button" type="button" :aria-label="t('common.close')" @click="cardsStore.closeCard">
         <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
       </button>
     </div>
     <div v-if="task" class="drawer-content">
       <div v-if="cardsStore.conflict?.cardId === task.id" class="conflict-panel" role="alert">
-        <strong>Outdated edit detected</strong>
-        <p>Your draft was based on version {{ cardsStore.conflict.mine.version }}. Latest is version {{ cardsStore.conflict.latest.version }}.</p>
+        <strong>{{ t("board.outdatedEditDetected") }}</strong>
+        <p>{{ t("board.draftBasedOnVersion", { mine: cardsStore.conflict.mine.version, latest: cardsStore.conflict.latest.version }) }}</p>
         <div class="drawer-actions">
-          <button class="button primary" type="button" @click="keepMine">Keep mine</button>
-          <button class="button secondary" type="button" @click="acceptLatest">Accept latest</button>
+          <button class="button primary" type="button" @click="keepMine">{{ t("board.keepMine") }}</button>
+          <button class="button secondary" type="button" @click="acceptLatest">{{ t("board.acceptLatest") }}</button>
         </div>
       </div>
 
       <form class="drawer-block" @submit.prevent="saveCard">
         <label>
-          Title
+          {{ t("board.titleField") }}
           <input v-model="draft.title" class="input" :disabled="!canMutate" required />
         </label>
         <label>
-          Description
+          {{ t("board.descriptionField") }}
           <textarea v-model="draft.description" class="input textarea compact-textarea" :disabled="!canMutate" required></textarea>
         </label>
         <label>
-          Assignee
+          {{ t("board.assigneeField") }}
           <select v-model="draft.assigneeId" class="input" :disabled="!canMutate">
-            <option :value="null">Unassigned</option>
+            <option :value="null">{{ t("board.unassigned") }}</option>
             <option v-for="member in membersStore.members" :key="member.id" :value="member.id">{{ member.name }}</option>
           </select>
         </label>
         <label>
-          Status
+          {{ t("board.status") }}
           <select v-model="draft.status" class="input" :disabled="!canMutate">
-            <option value="active">active</option>
-            <option value="blocked">blocked</option>
-            <option value="done">done</option>
+            <option value="active">{{ t("board.statusActive") }}</option>
+            <option value="blocked">{{ t("board.statusBlocked") }}</option>
+            <option value="done">{{ t("board.statusDone") }}</option>
           </select>
         </label>
         <label>
-          Labels
-          <input v-model="draft.labelsText" class="input" :disabled="!canMutate" placeholder="frontend, urgent" />
+          {{ t("board.labelsField") }}
+          <input v-model="draft.labelsText" class="input" :disabled="!canMutate" :placeholder="t('board.labelsPlaceholder')" />
         </label>
         <div class="drawer-actions">
-          <button class="button primary" type="submit" :disabled="!canMutate">Save card</button>
-          <button class="button danger" type="button" :disabled="!canMutate" @click="deleteCard">Delete</button>
+          <button class="button primary" type="submit" :disabled="!canMutate">{{ t("board.saveCard") }}</button>
+          <button class="button danger" type="button" :disabled="!canMutate" @click="deleteCard">{{ t("common.delete") }}</button>
         </div>
-        <p v-if="!canMutate" class="security-note">Viewer role is read-only. Editing, deleting, moving, and comments are disabled.</p>
+        <p v-if="!canMutate" class="security-note">{{ t("board.viewerReadOnly") }}</p>
       </form>
 
       <div class="drawer-row">
@@ -219,7 +220,7 @@ async function toggleChecklistItem(item) {
 
       <div class="drawer-section">
         <div class="section-title-row">
-          <h4>Checklist</h4>
+          <h4>{{ t("board.checklist") }}</h4>
           <span v-if="checklistSummary.total" class="status-badge synced">{{ checklistSummary.completed }}/{{ checklistSummary.total }}</span>
         </div>
         <div v-if="checklistItems.length" class="drawer-checklist">
@@ -228,14 +229,14 @@ async function toggleChecklistItem(item) {
             <span>{{ item.title }}</span>
           </label>
         </div>
-        <p v-else>No saved checklist items yet.</p>
+        <p v-else>{{ t("board.noChecklistItems") }}</p>
       </div>
 
       <div class="drawer-section">
-        <h4>Comments</h4>
+        <h4>{{ t("board.comments") }}</h4>
         <form class="comment-form" @submit.prevent="addComment">
-          <textarea v-model="commentDraft" class="input textarea compact-textarea" :disabled="!canMutate" placeholder="Add a comment"></textarea>
-          <button class="button secondary" type="submit" :disabled="!canMutate || !commentDraft.trim()">Add comment</button>
+          <textarea v-model="commentDraft" class="input textarea compact-textarea" :disabled="!canMutate" :placeholder="t('board.addCommentPlaceholder')"></textarea>
+          <button class="button secondary" type="submit" :disabled="!canMutate || !commentDraft.trim()">{{ t("board.addComment") }}</button>
         </form>
         <p class="security-note">Комментарии сохраняются в Supabase и обновляются через realtime.</p>
 
@@ -251,8 +252,8 @@ async function toggleChecklistItem(item) {
             <template v-if="editingCommentId === comment.id">
               <textarea v-model="editingCommentBody" class="input textarea compact-textarea"></textarea>
               <div class="drawer-actions">
-                <button class="button secondary" type="button" @click="saveComment(comment.id)">Save</button>
-                <button class="button secondary" type="button" @click="editingCommentId = null">Cancel</button>
+                <button class="button secondary" type="button" @click="saveComment(comment.id)">{{ t("common.save") }}</button>
+                <button class="button secondary" type="button" @click="editingCommentId = null">{{ t("common.cancel") }}</button>
               </div>
             </template>
             <template v-else>
@@ -267,8 +268,8 @@ async function toggleChecklistItem(item) {
         </div>
       </div>
       <div class="drawer-section">
-        <h4>History</h4>
-        <p v-if="!task.history?.length">Card history is recorded in activity logs.</p>
+        <h4>{{ t("board.history") }}</h4>
+        <p v-if="!task.history?.length">{{ t("board.cardHistoryRecorded") }}</p>
         <p v-for="item in task.history" :key="item">{{ item }}</p>
       </div>
     </div>
