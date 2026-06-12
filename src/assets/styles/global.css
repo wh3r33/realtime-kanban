@@ -111,9 +111,10 @@ svg {
 
 .poster-title {
   position: relative;
-  display: grid;
+  display: inline-grid;
   margin: 0;
-  width: min-content;
+  width: max-content;
+  max-width: 100%;
   color: var(--ink);
   font-weight: 300;
   line-height: 0.78;
@@ -123,6 +124,7 @@ svg {
 .line-real,
 .line-kanban {
   display: block;
+  white-space: nowrap;
   font-size: clamp(76px, 15vw, 218px);
   font-weight: 300;
   transform-origin: left center;
