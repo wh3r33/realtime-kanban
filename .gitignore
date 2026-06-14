@@ -8,3 +8,4 @@ dist/
 coverage/
 *.log
 .codex
+README.md
