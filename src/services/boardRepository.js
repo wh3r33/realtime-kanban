@@ -127,7 +127,7 @@ export async function getBoardCards(boardId) {
     .from("cards")
     .select("*")
     .eq("board_id", boardId)
-    .eq("status", "active")
+    .neq("status", "deleted")
     .order("position", { ascending: true });
   warnSupabaseError("cards list failed", queryError);
   if (isMissingSupabaseSchemaError(queryError)) {

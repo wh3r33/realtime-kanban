@@ -15,6 +15,8 @@ function profileName(user, profile) {
   return profile?.name || user?.user_metadata?.name || user?.email || "Supabase user";
 }
 
+const authRedirectUrl = import.meta.env.VITE_SUPABASE_AUTH_REDIRECT_URL?.trim() || "https://realtime-kanban-pearl.vercel.app/";
+
 let initializePromise = null;
 let authSubscription = null;
 
@@ -111,15 +113,23 @@ export const useAuthStore = defineStore("auth", {
     async submitAuth(mode, payload) {
       if (!isSupabaseConfigured || !supabase) return { ok: false, message: this.errorMessage };
       if (mode === "forgot") {
-        const { error } = await supabase.auth.resetPasswordForEmail(payload.email);
+        const { error } = await supabase.auth.resetPasswordForEmail(payload.email, {
+          redirectTo: authRedirectUrl
+        });
         return { ok: !error, message: error?.message || t("auth.resetSent") };
       }
       const authMethod = mode === "register" ? "signUp" : "signInWithPassword";
-      const { error } = await supabase.auth[authMethod]({
+      const authPayload = {
         email: payload.email,
-        password: payload.password,
-        options: mode === "register" ? { data: { name: payload.name } } : undefined
-      });
+        password: payload.password
+      };
+      if (mode === "register") {
+        authPayload.options = {
+          data: { name: payload.name },
+          emailRedirectTo: authRedirectUrl
+        };
+      }
+      const { error } = await supabase.auth[authMethod](authPayload);
       warnSupabaseError(`auth ${mode} failed`, error);
       if (error) return { ok: false, message: error.message };
       this.initialized = false;

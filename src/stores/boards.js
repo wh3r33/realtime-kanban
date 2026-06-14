@@ -140,8 +140,9 @@ export const useBoardsStore = defineStore("boards", {
       }
       const board = mapBoardRow(payload.new);
       const index = this.boards.findIndex((item) => item.id === board.id);
-      if (index >= 0) this.boards[index] = { ...this.boards[index], ...board };
-      else this.boards.unshift(board);
+      this.boards = index >= 0
+        ? this.boards.map((item) => (item.id === board.id ? { ...item, ...board } : item))
+        : [board, ...this.boards];
     },
     applyColumnChange(payload) {
       if (payload.eventType === "DELETE") {
@@ -151,9 +152,10 @@ export const useBoardsStore = defineStore("boards", {
       const column = mapColumnRow(payload.new);
       if (column.boardId !== this.selectedBoardId) return;
       const index = this.columns.findIndex((item) => item.id === column.id);
-      if (index >= 0) this.columns[index] = column;
-      else this.columns.push(column);
-      this.columns.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+      this.columns = (index >= 0
+        ? this.columns.map((item) => (item.id === column.id ? column : item))
+        : [...this.columns, column]
+      ).sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
     }
   }
 });

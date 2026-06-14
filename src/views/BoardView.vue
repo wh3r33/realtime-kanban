@@ -19,6 +19,8 @@ const liveMessage = ref("");
 const newCard = ref({ title: "", description: "", columnId: "", assigneeId: null, labelsText: "" });
 const pageLoading = ref(false);
 const filters = ref({ query: "", assigneeId: "", label: "", status: "" });
+const fallbackIntervalId = ref(null);
+let boardSessionVersion = 0;
 
 const currentBoardCards = computed(() => cardsStore.cards.filter((task) => task.boardId === boardsStore.selectedBoardId));
 const availableLabels = computed(() => Array.from(new Set(currentBoardCards.value.flatMap((card) => card.labels || []))).sort());
@@ -47,8 +49,7 @@ watch(
   () => boardsStore.selectedBoardId,
   async (boardId) => {
     if (!boardId) return;
-    await loadBoardData(boardId);
-    cardsStore.initializeRealtime(boardId);
+    await initializeBoardSession(boardId);
   },
   { immediate: true }
 );
@@ -69,6 +70,50 @@ async function loadBoardData(boardId) {
   await membersStore.loadMembers(boardId);
   await uiStore.loadActivity(boardId);
   pageLoading.value = false;
+}
+
+async function refreshRailFallbackData(boardId = boardsStore.selectedBoardId) {
+  if (!boardId) return;
+  if (cardsStore.realtime.mode === "reconnecting" || !cardsStore.realtime.unsubscribe) {
+    cardsStore.initializeRealtime(boardId);
+  }
+  await Promise.all([
+    boardsStore.loadColumns(boardId),
+    cardsStore.loadCards(boardId),
+    membersStore.loadMembers(boardId),
+    uiStore.loadActivity(boardId)
+  ]);
+  cardsStore.trackPresence({
+    boardId,
+    cardId: cardsStore.selectedCardId || null,
+    mode: cardsStore.selectedCardId ? "editing" : "viewing",
+    field: cardsStore.selectedCardId ? "card" : null
+  });
+}
+
+function stopFallbackPolling() {
+  if (!fallbackIntervalId.value) return;
+  window.clearInterval(fallbackIntervalId.value);
+  fallbackIntervalId.value = null;
+}
+
+function startFallbackPolling(boardId) {
+  stopFallbackPolling();
+  fallbackIntervalId.value = window.setInterval(() => {
+    refreshRailFallbackData(boardId);
+  }, 30000);
+}
+
+async function initializeBoardSession(boardId) {
+  const sessionVersion = ++boardSessionVersion;
+  stopFallbackPolling();
+  cardsStore.disposeRealtime({ keepPresence: true });
+  await loadBoardData(boardId);
+  if (sessionVersion !== boardSessionVersion) return;
+  cardsStore.initializeRealtime(boardId);
+  await refreshRailFallbackData(boardId);
+  if (sessionVersion !== boardSessionVersion) return;
+  startFallbackPolling(boardId);
 }
 
 function openTask(taskId) {
@@ -158,7 +203,6 @@ async function setupColumns() {
 
 onMounted(async () => {
   await authStore.initialize();
-  await loadBoardData(boardsStore.selectedBoardId);
   newCard.value.assigneeId = authStore.currentUserId;
   cardsStore.setOnlineStatus(typeof navigator === "undefined" ? true : navigator.onLine);
   window.addEventListener("online", handleOnline);
@@ -166,10 +210,11 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  boardSessionVersion += 1;
+  stopFallbackPolling();
   window.removeEventListener("online", handleOnline);
   window.removeEventListener("offline", handleOffline);
-  cardsStore.realtime.untrack?.();
-  cardsStore.realtime.unsubscribe?.();
+  cardsStore.disposeRealtime();
 });
 
 function handleOnline() {

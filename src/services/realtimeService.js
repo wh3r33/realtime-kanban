@@ -33,8 +33,14 @@ export function subscribeToBoard(boardId, handlers = {}, options = {}) {
       supabaseChannel = supabase
         .channel(channelName)
         .on("presence", { event: "sync" }, () => handlers.onPresenceSync?.(supabaseChannel.presenceState()))
-        .on("presence", { event: "join" }, ({ key, newPresences }) => handlers.onPresenceJoin?.({ key, presences: newPresences }))
-        .on("presence", { event: "leave" }, ({ key, leftPresences }) => handlers.onPresenceLeave?.({ key, presences: leftPresences }))
+        .on("presence", { event: "join" }, ({ key, newPresences }) => {
+          handlers.onPresenceJoin?.({ key, presences: newPresences });
+          handlers.onPresenceSync?.(supabaseChannel.presenceState());
+        })
+        .on("presence", { event: "leave" }, ({ key, leftPresences }) => {
+          handlers.onPresenceLeave?.({ key, presences: leftPresences });
+          handlers.onPresenceSync?.(supabaseChannel.presenceState());
+        })
         .on("postgres_changes", { event: "*", schema: "public", table: "boards", filter: `id=eq.${boardId}` }, (payload) =>
           handlers.onDatabaseChange?.({ table: "boards", payload })
         )

@@ -179,7 +179,7 @@ export const useCardsStore = defineStore("cards", {
       return { comments: data || [] };
     },
     resetWorkspace() {
-      this.realtime.unsubscribe?.();
+      this.disposeRealtime();
       this.cards = [];
       this.comments = [];
       this.checklistItemsByCardId = {};
@@ -203,10 +203,21 @@ export const useCardsStore = defineStore("cards", {
         lastEvent: null
       };
     },
+    disposeRealtime(options = {}) {
+      this.realtime.untrack?.();
+      this.realtime.unsubscribe?.();
+      this.realtime = {
+        boardId: null,
+        mode: "none",
+        unsubscribe: null,
+        lastEvent: null
+      };
+      if (!options.keepPresence) useMembersStore().setPresenceDisconnected();
+    },
     initializeRealtime(boardId) {
       if (!boardId) return;
-      if (this.realtime.boardId === boardId && this.realtime.unsubscribe) return;
-      this.realtime.unsubscribe?.();
+      if (this.realtime.boardId === boardId && this.realtime.unsubscribe && this.realtime.mode !== "reconnecting") return;
+      this.disposeRealtime({ keepPresence: true });
       const membersStore = useMembersStore();
       membersStore.setPresenceConnecting();
       const presenceTimeout = globalThis.setTimeout(() => {
@@ -227,8 +238,14 @@ export const useCardsStore = defineStore("cards", {
           if (event.table === "cards") this.applyCardChange(event.payload);
           if (event.table === "card_checklist_items") this.loadChecklistItems(boardId);
           if (event.table === "card_comments") this.applyCommentChange(event.payload);
-          if (event.table === "columns") boardsStore.applyColumnChange(event.payload);
-          if (event.table === "activity_logs") uiStore.applyActivityChange(event.payload);
+          if (event.table === "columns") {
+            boardsStore.applyColumnChange(event.payload);
+            this.rehydrateCardsForBoard(boardId);
+          }
+          if (event.table === "activity_logs") {
+            uiStore.applyActivityChange(event.payload);
+            this.applyBoardSurfaceActivityChange(event.payload);
+          }
           if (event.table === "board_members") useMembersStore().applyMemberChange(event.payload);
         },
         onPresenceSync: (state) => useMembersStore().applyPresenceState(state),
@@ -240,6 +257,7 @@ export const useCardsStore = defineStore("cards", {
         onStatus: (status, error) => {
           if (status !== "RECONNECTING") globalThis.clearTimeout(presenceTimeout);
           if (status === "SUBSCRIBED") {
+            this.realtime.mode = "supabase";
             useUiStore().setSyncState("synced", "Realtime subscription active");
             useMembersStore().setPresenceConnected("Presence live");
             const authStore = useAuthStore();
@@ -250,13 +268,16 @@ export const useCardsStore = defineStore("cards", {
               timestamp: new Date().toISOString()
             });
           } else if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) {
+            this.realtime.mode = "reconnecting";
             const message = error?.message || `Realtime ${status.toLowerCase().replace(/_/g, " ")}`;
             useUiStore().setSyncState("partial", message);
             useMembersStore().setPresenceFailed(`Presence unavailable: ${message}`);
           } else if (status === "RECONNECTING") {
+            this.realtime.mode = "reconnecting";
             useUiStore().setSyncState("partial", "Realtime переподключается");
             useMembersStore().setPresenceConnecting("Presence reconnecting");
           } else if (status === "BROADCAST_FALLBACK") {
+            this.realtime.mode = "broadcast";
             useUiStore().setSyncState("partial", "Local tab sync only");
             useMembersStore().setPresenceFailed("Presence unavailable: Supabase is not configured");
           }
@@ -326,8 +347,9 @@ export const useCardsStore = defineStore("cards", {
     upsertCard(card, options = {}) {
       const nextCard = hydrateCard(clone(card));
       const index = this.cards.findIndex((item) => item.id === nextCard.id);
-      if (index >= 0) this.cards[index] = nextCard;
-      else this.cards.push(nextCard);
+      this.cards = index >= 0
+        ? this.cards.map((item) => (item.id === nextCard.id ? nextCard : item))
+        : [...this.cards, nextCard];
       if (!options.remote) this.publish({ type: index >= 0 ? "card:updated" : "card:created", card: nextCard });
       return nextCard;
     },
@@ -342,6 +364,9 @@ export const useCardsStore = defineStore("cards", {
     replaceCards(nextCards) {
       const byId = new Map(nextCards.map((card) => [card.id, card]));
       this.cards = [...byId.values()].map((card) => hydrateCard(card));
+    },
+    rehydrateCardsForBoard(boardId = useBoardsStore().selectedBoardId) {
+      this.cards = this.cards.map((card) => (card.boardId === boardId ? hydrateCard(card) : card));
     },
     normalizeColumnPositions(boardId, columnId) {
       const ordered = this.cardsForColumn(boardId, columnId);
@@ -365,7 +390,24 @@ export const useCardsStore = defineStore("cards", {
         this.removeCard(payload.old?.id || payload.new?.id, { remote: true });
         return;
       }
+      if (!payload.new?.id) return;
       this.upsertCard(mapCardRow(payload.new), { remote: true });
+    },
+    applyBoardSurfaceActivityChange(payload) {
+      const log = payload.new;
+      if (!log || log.board_id !== this.realtime.boardId) return;
+      if (log.entity_type === "card" || String(log.action || "").startsWith("card_")) {
+        if (["card_deleted", "card_hard_deleted"].includes(log.action) || log.new_data?.status === "deleted") {
+          this.removeCard(log.entity_id || log.old_data?.id || log.new_data?.id, { remote: true });
+          return;
+        }
+        if (log.new_data?.id) this.upsertCard(mapCardRow(log.new_data), { remote: true });
+        if (log.action === "card_moved") this.loadCards(log.board_id);
+      }
+      if (log.entity_type === "columns" || String(log.action || "").includes("columns")) {
+        const boardsStore = useBoardsStore();
+        boardsStore.loadColumns(log.board_id).then(() => this.rehydrateCardsForBoard(log.board_id));
+      }
     },
     applyCommentChange(payload) {
       if (payload.eventType === "DELETE") {

@@ -181,7 +181,7 @@ function openFullAssistant() {
             <span>{{ t("members.activeSignals") }} · {{ cardsStore.cardById(presence.cardId)?.title || presence.cardId }}</span>
           </div>
         </div>
-        <div v-if="!membersStore.onlineMembers.length && !membersStore.editingUsers.length" class="editing-item">
+        <div v-if="!membersStore.onlineMembers.length && !membersStore.editingUsers.length" class="editing-item rail-empty-item">
           <strong>{{ membersStore.presenceConnected ? t("members.noActiveSignals") : membersStore.presenceMessage }}</strong>
           <span>{{ membersStore.presenceConnected ? "Other members will appear here." : "Realtime presence is not currently live." }}</span>
         </div>
@@ -204,7 +204,7 @@ function openFullAssistant() {
             <time>{{ event.createdAt }}</time>
           </div>
         </div>
-        <div v-if="!uiStore.activityEvents.length" class="activity-item">
+        <div v-if="!uiStore.activityEvents.length" class="activity-item rail-empty-item">
           <strong>{{ t("activity.noActivity") }}</strong>
           <span>{{ t("activity.body") }}</span>
         </div>
@@ -212,3 +212,42 @@ function openFullAssistant() {
     </div>
   </aside>
 </template>
+
+<style scoped>
+.activity-rail,
+.rail-section,
+.editing-now,
+.activity-feed,
+.editing-item,
+.activity-item,
+.ai-rail-status {
+  min-width: 0;
+}
+
+.editing-item,
+.activity-item,
+.ai-rail-status {
+  overflow: hidden;
+}
+
+.editing-item > div,
+.activity-item > div {
+  min-width: 0;
+}
+
+.editing-item strong,
+.editing-item span,
+.activity-item strong,
+.activity-item span,
+.activity-item time,
+.ai-rail-status {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+}
+
+.rail-empty-item {
+  grid-template-columns: minmax(0, 1fr);
+}
+</style>
